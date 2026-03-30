@@ -1,9 +1,12 @@
 # Directories
 plans/
+.launch/
 
 # Files
 .DS_Store
+.env
 CLAUDE.md
 
 # Binaries
 launch
+*.exe
