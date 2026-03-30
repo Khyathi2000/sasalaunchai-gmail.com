@@ -1,0 +1,8 @@
+# Directories
+plans/
+
+# Files
+.DS_Store
+
+# Binaries
+launch
