@@ -1,11 +1,16 @@
 # Directories
 plans/
 .launch/
+.launch-test/
+.launch-e2e/
+node_modules/
+dist/
 
 # Files
 .DS_Store
 .env
 CLAUDE.md
+*.log
 
 # Binaries
 launch

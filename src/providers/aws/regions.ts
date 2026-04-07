@@ -1,0 +1,18 @@
+export const awsRegions = [
+  { id: "us-east-1", name: "US East (N. Virginia)", default: true },
+  { id: "us-east-2", name: "US East (Ohio)" },
+  { id: "us-west-1", name: "US West (N. California)" },
+  { id: "us-west-2", name: "US West (Oregon)" },
+  { id: "eu-central-1", name: "EU (Frankfurt)" },
+  { id: "eu-west-1", name: "EU (Ireland)" },
+  { id: "eu-west-2", name: "EU (London)" },
+  { id: "eu-north-1", name: "EU (Stockholm)" },
+  { id: "ap-northeast-1", name: "Asia Pacific (Tokyo)" },
+  { id: "ap-northeast-2", name: "Asia Pacific (Seoul)" },
+  { id: "ap-southeast-1", name: "Asia Pacific (Singapore)" },
+  { id: "ap-southeast-2", name: "Asia Pacific (Sydney)" },
+  { id: "sa-east-1", name: "South America (Sao Paulo)" },
+  { id: "ca-central-1", name: "Canada (Central)" },
+  { id: "me-south-1", name: "Middle East (Bahrain)" },
+  { id: "af-south-1", name: "Africa (Cape Town)" },
+];
