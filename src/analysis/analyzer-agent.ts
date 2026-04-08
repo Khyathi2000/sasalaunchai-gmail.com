@@ -113,16 +113,27 @@ export async function runAnalyzerAgent(
   const prompt = buildPrompt(codebase);
   let fullText = "";
 
+  const model = process.env.CLAUDE_MODEL || "claude-sonnet-4-6";
+
   const stream = await getClient().messages.stream({
-    model: "claude-sonnet-4-6",
+    model,
     max_tokens: 16000,
     messages: [{ role: "user", content: prompt }],
   });
 
-  for await (const chunk of stream) {
-    if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
-      fullText += chunk.delta.text;
-      onStream(chunk.delta.text);
+  try {
+    for await (const chunk of stream) {
+      if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+        fullText += chunk.delta.text;
+        onStream(chunk.delta.text);
+      }
+    }
+  } catch (streamErr) {
+    // If we got partial text, try to parse what we have
+    if (fullText.length > 100) {
+      onStream("\n[Stream interrupted — parsing partial results]");
+    } else {
+      throw streamErr;
     }
   }
 

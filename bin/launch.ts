@@ -2,6 +2,10 @@
 import { Command } from "commander";
 import dotenv from "dotenv";
 import { resolve } from "path";
+
+// Load .env FIRST before any other imports that might use env vars
+dotenv.config();
+
 import { runWizard } from "../src/cli/orchestrator.js";
 import { type DeploymentPlan } from "../src/types/plan.js";
 import { setLogLevel } from "../src/utils/logger.js";
@@ -17,7 +21,14 @@ import { stepDeploy } from "../src/cli/steps/step-deploy.js";
 import { stepValidate } from "../src/cli/steps/step-validate.js";
 import { stepMonitor } from "../src/cli/steps/step-monitor.js";
 
-dotenv.config();
+// Catch unhandled errors so the process doesn't silently crash
+process.on("unhandledRejection", (err) => {
+  console.error("\n  \x1b[31m✗ Unexpected error:\x1b[0m", err instanceof Error ? err.message : err);
+  if (err instanceof Error && err.stack) {
+    console.error("  " + err.stack.split("\n").slice(1, 4).join("\n  "));
+  }
+  process.exit(1);
+});
 
 const program = new Command();
 
