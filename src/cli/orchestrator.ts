@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
 import chalk from "chalk";
 import { StepResult, type DeploymentPlan } from "../types/plan.js";
-import { header } from "./renderer.js";
+import { showBanner, showStepHeader, showComplete, clearScreen } from "./screen.js";
 import { log } from "../utils/logger.js";
 
 export type StepFn = (plan: DeploymentPlan) => Promise<StepResult>;
@@ -12,17 +12,13 @@ interface Step {
 }
 
 export async function runWizard(steps: Step[], plan: DeploymentPlan): Promise<DeploymentPlan> {
-  p.intro(chalk.cyan.bold("launch-platform"));
-
-  header("Cloud Deployment Wizard");
-  log.info(`Working directory: ${plan.workDir}`);
-  console.log();
+  clearScreen();
+  showBanner();
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
-    const stepNum = `[${i + 1}/${steps.length}]`;
 
-    p.log.step(`${stepNum} ${chalk.bold(step.name)}`);
+    showStepHeader(i + 1, steps.length, step.name);
 
     try {
       const result = await step.fn(plan);
@@ -32,27 +28,28 @@ export async function runWizard(steps: Step[], plan: DeploymentPlan): Promise<De
           break;
         case StepResult.Retry:
           log.warn("Retrying step...");
-          i--; // Re-run this step
+          i--;
           break;
         case StepResult.Abort:
-          log.warn("Wizard aborted.");
-          p.outro(chalk.yellow("Deployment cancelled."));
+          console.log();
+          console.log(chalk.yellow("  Deployment cancelled by user."));
+          console.log();
           return plan;
       }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      log.error(`Step "${step.name}" failed: ${msg}`);
-      p.log.error(msg);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.log(chalk.red(`  ✗ Step "${step.name}" failed: ${msg}`));
+      console.log();
 
       const retry = await p.confirm({ message: "Retry this step?" });
       if (p.isCancel(retry) || !retry) {
-        p.outro(chalk.red("Deployment aborted due to error."));
+        console.log(chalk.red("  Deployment aborted."));
         return plan;
       }
-      i--; // Retry
+      i--;
     }
   }
 
-  p.outro(chalk.green("Wizard complete!"));
+  showComplete();
   return plan;
 }

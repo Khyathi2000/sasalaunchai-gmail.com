@@ -63,3 +63,61 @@ export function estimateCosts(serviceIds: string[]): CostBreakdown {
     collectedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Fetch real cost data from AWS Cost Explorer.
+ * Falls back to estimates if credentials are unavailable.
+ */
+export async function fetchRealCosts(region: string): Promise<CostBreakdown | null> {
+  if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+    return null;
+  }
+
+  try {
+    const { CostExplorerClient, GetCostAndUsageCommand } = await import("@aws-sdk/client-cost-explorer");
+    const client = new CostExplorerClient({ region: "us-east-1" }); // Cost Explorer is global
+
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const response = await client.send(new GetCostAndUsageCommand({
+      TimePeriod: {
+        Start: thirtyDaysAgo.toISOString().split("T")[0],
+        End: now.toISOString().split("T")[0],
+      },
+      Granularity: "MONTHLY",
+      Metrics: ["UnblendedCost"],
+      GroupBy: [{ Type: "DIMENSION", Key: "SERVICE" }],
+      Filter: {
+        Tags: {
+          Key: "ManagedBy",
+          Values: ["sasa-launch", "launch-platform"],
+        },
+      },
+    }));
+
+    const byService: CostBreakdown["byService"] = [];
+    let totalMonthly = 0;
+
+    for (const group of response.ResultsByTime?.[0]?.Groups || []) {
+      const serviceName = group.Keys?.[0] || "Unknown";
+      const amount = parseFloat(group.Metrics?.UnblendedCost?.Amount || "0");
+      totalMonthly += amount;
+      byService.push({
+        serviceId: serviceName.toLowerCase().replace(/\s+/g, "-"),
+        dailyCost: Math.round((amount / 30) * 100) / 100,
+        monthlyCost: Math.round(amount * 100) / 100,
+      });
+    }
+
+    return {
+      totalDaily: Math.round((totalMonthly / 30) * 100) / 100,
+      totalMonthly: Math.round(totalMonthly * 100) / 100,
+      byService: byService.sort((a, b) => b.monthlyCost - a.monthlyCost),
+      currency: "USD",
+      collectedAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}

@@ -5,7 +5,7 @@ import { DeploymentAgent } from "../agent-base.js";
 export class CloudFunctionsAgent extends DeploymentAgent {
   protected async provision(): Promise<void> {
     await this.waitFor("cloud-iam", "appServiceAccountEmail");
-    const projectName = this.context.plan.source.split("/").pop()?.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase() || "launch";
+    const projectName = this.getProjectName();
     const region = this.context.plan.region;
     const projectId = this.context.plan.gcpCredentials?.projectId || "your-project-id";
 

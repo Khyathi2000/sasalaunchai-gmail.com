@@ -2,89 +2,109 @@ import type { DeploymentPlan, AnalysisResult, ParsedCodebase } from "../../types
 import { StepResult } from "../../types/plan.js";
 import { runParserAgent } from "../../analysis/parser-agent.js";
 import { runAnalyzerAgent } from "../../analysis/analyzer-agent.js";
-import { log } from "../../utils/logger.js";
-import { header, keyValue, subheader } from "../renderer.js";
+import { scanForSecurityIssues } from "../../analysis/security-scanner.js";
+import { statusPanel, panel, success, error, warn, info, dim, divider } from "../screen.js";
 import { createSpinner } from "../spinner.js";
+import chalk from "chalk";
 
-// Store analysis results for later steps
 export let lastParsedCodebase: ParsedCodebase | undefined;
 export let lastAnalysisResult: AnalysisResult | undefined;
 
 export async function stepAnalyze(plan: DeploymentPlan): Promise<StepResult> {
-  header("Code Analysis");
-
   // Phase 1: Parse codebase
-  const parseSpinner = createSpinner("Parsing codebase...").start();
+  const parseSpinner = createSpinner("Scanning codebase...").start();
   try {
-    lastParsedCodebase = await runParserAgent(plan.source, (msg, count) => {
+    lastParsedCodebase = await runParserAgent(plan.source, (msg) => {
       parseSpinner.text = msg;
     });
     parseSpinner.succeed(`Parsed ${lastParsedCodebase.files.length} files`);
-  } catch (error) {
+  } catch (err) {
     parseSpinner.fail("Failed to parse codebase");
-    log.error(error instanceof Error ? error.message : String(error));
+    error(err instanceof Error ? err.message : String(err));
     return StepResult.Retry;
   }
 
-  // Display parsing results
-  subheader("Repository Info");
-  keyValue("Name", lastParsedCodebase.repoName);
-  keyValue("Total files", String(lastParsedCodebase.totalFiles));
-  keyValue("Parsed files", String(lastParsedCodebase.files.length));
-  keyValue("Tech stack", lastParsedCodebase.techStack.join(", ") || "None detected");
-  console.log();
+  // Display repo info panel
+  const langs = new Map<string, number>();
+  for (const f of lastParsedCodebase.files) {
+    langs.set(f.language, (langs.get(f.language) || 0) + 1);
+  }
 
-  // Phase 2: Analyze with Claude
+  statusPanel("Repository", [
+    { label: "Name", value: lastParsedCodebase.repoName },
+    { label: "Total Files", value: String(lastParsedCodebase.totalFiles) },
+    { label: "Parsed", value: String(lastParsedCodebase.files.length) },
+    { label: "Tech Stack", value: lastParsedCodebase.techStack.join(", ") || "None detected", color: chalk.cyan },
+    { label: "Languages", value: [...langs.entries()].map(([l, c]) => `${l}(${c})`).join(", ") },
+  ]);
+
+  // Phase 1.5: Security scan
+  console.log();
+  const fileMap = new Map(lastParsedCodebase.files.map(f => [f.path, f.content]));
+  const issues = scanForSecurityIssues(fileMap);
+  if (issues.length > 0) {
+    warn(`${issues.length} security issue(s) found`);
+    for (const issue of issues.slice(0, 3)) {
+      dim(`[${issue.severity.toUpperCase()}] ${issue.title} in ${issue.file}:${issue.line || "?"}`);
+    }
+    if (issues.length > 3) dim(`... and ${issues.length - 3} more`);
+  } else {
+    success("No security issues found");
+  }
+
+  // Phase 2: Claude analysis
   if (!process.env.ANTHROPIC_API_KEY) {
-    log.warn("ANTHROPIC_API_KEY not set. Skipping AI analysis.");
-    log.info("Set ANTHROPIC_API_KEY in .env to enable deep analysis and infrastructure inference.");
+    console.log();
+    warn("ANTHROPIC_API_KEY not set — skipping AI analysis");
+    info("Set it in .env for deep analysis + infrastructure inference");
     return StepResult.Continue;
   }
 
+  console.log();
   const analyzeSpinner = createSpinner("Analyzing with Claude...").start();
   try {
-    lastAnalysisResult = await runAnalyzerAgent(lastParsedCodebase, (chunk) => {
-      // Stream chunks — update spinner text with progress
-      const lines = chunk.split("\n").filter(Boolean);
-      if (lines.length > 0) {
-        analyzeSpinner.text = `Analyzing... ${lines[lines.length - 1].slice(0, 60)}`;
-      }
+    let chunks = 0;
+    lastAnalysisResult = await runAnalyzerAgent(lastParsedCodebase, () => {
+      chunks++;
+      if (chunks % 20 === 0) analyzeSpinner.text = `Analyzing... ${chunks} chunks streamed`;
     });
-    analyzeSpinner.succeed("Analysis complete");
-  } catch (error) {
-    analyzeSpinner.fail("Analysis failed");
-    log.error(error instanceof Error ? error.message : String(error));
-    log.info("Continuing without AI analysis...");
+    analyzeSpinner.succeed(`Analysis complete — ${lastAnalysisResult.fileExplanations.length} files analyzed`);
+  } catch (err) {
+    analyzeSpinner.fail("Claude analysis failed");
+    warn(err instanceof Error ? err.message : String(err));
+    info("Continuing with rule-based inference...");
+    return StepResult.Continue;
   }
 
   // Display analysis results
   if (lastAnalysisResult) {
-    subheader("Analysis Summary");
-    console.log(`  ${lastAnalysisResult.summary.slice(0, 200)}`);
     console.log();
-
-    if (lastAnalysisResult.techConsiderations.length > 0) {
-      subheader("Key Technologies");
-      for (const tech of lastAnalysisResult.techConsiderations.slice(0, 5)) {
-        keyValue(tech.name, tech.purpose);
-      }
-    }
+    statusPanel("AI Analysis", [
+      { label: "Files", value: `${lastAnalysisResult.fileExplanations.length} analyzed` },
+      { label: "Technologies", value: `${lastAnalysisResult.techConsiderations.length} identified` },
+      { label: "Flowchart", value: lastAnalysisResult.flowchart ? `Generated (${lastAnalysisResult.flowchart.split("\n").length} lines)` : "None", color: chalk.green },
+    ]);
 
     if (lastAnalysisResult.infraRequirements) {
-      subheader("Infrastructure Requirements");
       const infra = lastAnalysisResult.infraRequirements;
-      keyValue("Runtime", `${infra.runtime.type} — ${infra.runtime.reason}`);
+      const items: { label: string; value: string; color?: (s: string) => string }[] = [
+        { label: "Runtime", value: `${infra.runtime.type} — ${infra.runtime.reason.slice(0, 50)}`, color: chalk.yellow },
+      ];
       if (infra.databases.length > 0) {
-        keyValue("Database", infra.databases.map(d => `${d.engine} (${d.type})`).join(", "));
+        items.push({ label: "Database", value: infra.databases.map(d => `${d.engine} (${d.type})`).join(", "), color: chalk.blue });
       }
-      if (infra.networking.needsLoadBalancer) keyValue("Load Balancer", "Required");
-      if (infra.networking.needsCDN) keyValue("CDN", "Required");
-      if (infra.auth.type !== "none") keyValue("Auth", `${infra.auth.type} via ${infra.auth.provider}`);
+      if (infra.networking.needsLoadBalancer) items.push({ label: "Load Balancer", value: "Required", color: chalk.cyan });
+      if (infra.networking.needsCDN) items.push({ label: "CDN", value: "Required", color: chalk.cyan });
+      if (infra.auth.type !== "none") items.push({ label: "Auth", value: `${infra.auth.type} via ${infra.auth.provider}` });
+      if (infra.envVars.length > 0) {
+        const sensitive = infra.envVars.filter(v => v.sensitive).length;
+        items.push({ label: "Env Vars", value: `${infra.envVars.length} detected (${sensitive} sensitive)`, color: sensitive > 0 ? chalk.red : chalk.white });
+      }
 
-      // Store infra requirements in plan
+      console.log();
+      statusPanel("Infrastructure Requirements", items);
       plan.infraRequirements = infra;
     }
-    console.log();
   }
 
   return StepResult.Continue;

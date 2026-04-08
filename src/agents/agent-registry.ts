@@ -14,6 +14,9 @@ import { ElastiCacheAgent } from "./agents/elasticache-agent.js";
 import { SQSAgent } from "./agents/sqs-agent.js";
 import { ALBAgent } from "./agents/alb-agent.js";
 import { Route53Agent } from "./agents/route53-agent.js";
+import { ECRAgent } from "./agents/ecr-agent.js";
+import { CloudWatchAgent } from "./agents/cloudwatch-agent.js";
+import { SecretsManagerAgent } from "./agents/secrets-manager-agent.js";
 
 // GCP Agents
 import { VPCGCPAgent } from "./agents/vpc-gcp-agent.js";
@@ -47,6 +50,9 @@ const awsAgentMap: Record<string, AgentConstructor> = {
   sqs: SQSAgent,
   alb: ALBAgent,
   route53: Route53Agent,
+  ecr: ECRAgent,
+  cloudwatch: CloudWatchAgent,
+  "secrets-manager": SecretsManagerAgent,
 };
 
 const gcpAgentMap: Record<string, AgentConstructor> = {

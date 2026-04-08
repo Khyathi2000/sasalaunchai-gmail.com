@@ -2,7 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ServiceRecommendation } from "../types/cloud.js";
 import type { ParsedCodebase, AnalysisResult } from "../types/index.js";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let _client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _client;
+}
 
 export async function refineRecommendations(
   recommendations: ServiceRecommendation[],
@@ -14,7 +18,7 @@ export async function refineRecommendations(
   const summary = analysis?.summary ?? `${codebase.repoName} with ${codebase.totalFiles} files`;
   const techStack = codebase.techStack.join(", ");
 
-  const message = await anthropic.messages.create({
+  const message = await getClient().messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 2000,
     messages: [{

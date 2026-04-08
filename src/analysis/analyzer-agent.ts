@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ParsedCodebase, AnalysisResult, FileExplanation, TechConsideration, InfraRequirements } from "../types/index.js";
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let _client: Anthropic | null = null;
+function getClient(): Anthropic {
+  if (!_client) _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _client;
+}
 const MAX_CONTENT_CHARS = 120_000;
 
 function buildPrompt(codebase: ParsedCodebase): string {
@@ -109,7 +113,7 @@ export async function runAnalyzerAgent(
   const prompt = buildPrompt(codebase);
   let fullText = "";
 
-  const stream = await anthropic.messages.stream({
+  const stream = await getClient().messages.stream({
     model: "claude-sonnet-4-6",
     max_tokens: 16000,
     messages: [{ role: "user", content: prompt }],

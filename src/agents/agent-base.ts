@@ -117,6 +117,15 @@ export abstract class DeploymentAgent {
     }
   }
 
+  protected getProjectName(): string {
+    const source = this.context.plan.source;
+    // Handle both forward and back slashes, remove trailing slashes
+    const cleaned = source.replace(/\\/g, "/").replace(/\/+$/, "");
+    const name = cleaned.split("/").pop() || "launch";
+    // Clean for use in resource names: lowercase, alphanumeric + hyphens only
+    return name.replace(/[^a-zA-Z0-9-]/g, "-").toLowerCase().slice(0, 40);
+  }
+
   // Subclasses implement these
   protected abstract provision(): Promise<void>;
   protected abstract configure(): Promise<void>;

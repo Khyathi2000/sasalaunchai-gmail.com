@@ -30,7 +30,7 @@ export async function stepSource(plan: DeploymentPlan): Promise<StepResult> {
       plan.source = "";
       return StepResult.Retry;
     }
-    plan.source = resolved;
+    plan.source = resolved.replace(/\\/g, "/");
     log.success(`Local codebase: ${plan.source}`);
   }
 
