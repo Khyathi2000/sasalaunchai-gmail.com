@@ -9,6 +9,12 @@ export interface ServiceSelection {
   config: Record<string, unknown>;
 }
 
+export interface GCPCredentials {
+  projectId: string;
+  email: string;
+  authenticated: boolean;
+}
+
 export interface DeploymentPlan {
   source: string;
   provider: string;
@@ -17,6 +23,7 @@ export interface DeploymentPlan {
   workDir: string;
   applyMode: boolean;
   infraRequirements?: InfraRequirements;
+  gcpCredentials?: GCPCredentials;
 }
 
 export interface InfraRequirements {

@@ -23,6 +23,11 @@ export async function executeDeployment(
 
   try {
     // Write provider config
+    // Pass GCP project ID to artifact writer via global (used in provider config template)
+    if (plan.gcpCredentials?.projectId) {
+      (globalThis as Record<string, unknown>).__gcpProjectId = plan.gcpCredentials.projectId;
+    }
+
     const writer = new ArtifactWriter(plan.workDir);
     writer.writeProviderConfig(plan.provider, plan.region);
     log.info("Provider configuration written");

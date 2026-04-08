@@ -5,11 +5,17 @@ export function inferNetworkingServices(codebase: ParsedCodebase, provider: stri
   const recs: ServiceRecommendation[] = [];
   const techStack = new Set(codebase.techStack.map(t => t.toLowerCase()));
 
-  // Always need VPC for AWS
+  // Always need VPC/network
   if (provider === "aws") {
     recs.push({
       serviceId: "vpc", serviceName: "VPC", category: "networking", provider: "aws",
       reason: "Virtual private cloud required for network isolation",
+      confidence: "high", config: {}, dependsOn: [],
+    });
+  } else if (provider === "gcp") {
+    recs.push({
+      serviceId: "vpc-gcp", serviceName: "VPC Network", category: "networking", provider: "gcp",
+      reason: "VPC network required for private connectivity and firewall rules",
       confidence: "high", config: {}, dependsOn: [],
     });
   }

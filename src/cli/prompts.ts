@@ -5,7 +5,7 @@ export async function selectProvider(): Promise<string> {
     message: "Select cloud provider",
     options: [
       { value: "aws", label: "Amazon Web Services (AWS)" },
-      { value: "gcp", label: "Google Cloud Platform (GCP)", hint: "limited support" },
+      { value: "gcp", label: "Google Cloud Platform (GCP)" },
     ],
   });
   if (p.isCancel(result)) process.exit(0);
