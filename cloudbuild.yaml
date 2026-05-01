@@ -43,7 +43,7 @@ steps:
       - --timeout=1800
       - --concurrency=20
       - --port=8080
-      - --set-env-vars=NODE_ENV=production,LAUNCH_WEB_WORKDIR=/tmp/launch
+      - --set-env-vars=NODE_ENV=production,LAUNCH_WEB_WORKDIR=/tmp/launch,GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
       - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,GITHUB_TOKEN=GITHUB_TOKEN:latest,CLAUDE_MODEL=CLAUDE_MODEL:latest
 
 images:
