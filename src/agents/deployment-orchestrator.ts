@@ -1,9 +1,10 @@
 import type { ServiceRecommendation, AgentOutput } from "../types/cloud.js";
 import type { DeploymentPlan } from "../types/plan.js";
 import { MessageBus } from "./message-bus.js";
-import { DeploymentAgent } from "./agent-base.js";
+import { DeploymentAgent, type LifecycleState } from "./agent-base.js";
 import { createAgent } from "./agent-registry.js";
 import { buildDependencyOrder } from "../inference/inference-engine.js";
+import { applyDeployment, isTerraformAvailable } from "./terraform-runner.js";
 import { log } from "../utils/logger.js";
 import { join } from "path";
 import { mkdirSync } from "fs";
@@ -15,8 +16,16 @@ export interface DeploymentResult {
   error?: string;
 }
 
+export interface ServiceLifecycleResult {
+  serviceId: string;
+  success: boolean;
+  state: LifecycleState;
+  error?: string;
+}
+
 export class DeploymentOrchestrator {
   private agents: Map<string, DeploymentAgent> = new Map();
+  private lifecycleStates: Map<string, LifecycleState> = new Map();
   private bus: MessageBus;
   private plan: DeploymentPlan;
   private recommendations: ServiceRecommendation[];
@@ -109,7 +118,36 @@ export class DeploymentOrchestrator {
       }
     }
 
+    // If apply mode is on, merge per-agent .tf files into a single stack
+    // and run terraform init+apply.
+    if (this.plan.applyMode) {
+      const tfAvailable = await isTerraformAvailable();
+      if (!tfAvailable) {
+        const err = "terraform binary not found on PATH; cannot apply. Artifacts written to disk.";
+        log.error(err);
+        this.bus.publishError("terraform", err);
+        return {
+          success: false,
+          agents: agentOutputs,
+          totalDuration: Date.now() - startTime,
+          error: err,
+        };
+      }
+
+      log.info("All provision phases done. Running terraform apply...");
+      const tfResult = await applyDeployment(this.plan, this.recommendations, this.bus);
+      if (!tfResult.success) {
+        return {
+          success: false,
+          agents: agentOutputs,
+          totalDuration: Date.now() - startTime,
+          error: tfResult.error ?? "terraform apply failed",
+        };
+      }
+    }
+
     log.success("All agents completed successfully");
+    for (const id of this.agents.keys()) this.lifecycleStates.set(id, "running");
     return {
       success: true,
       agents: agentOutputs,
@@ -138,5 +176,107 @@ export class DeploymentOrchestrator {
 
   getAgents(): Map<string, DeploymentAgent> {
     return this.agents;
+  }
+
+  getAgent(serviceId: string): DeploymentAgent | undefined {
+    return this.agents.get(serviceId);
+  }
+
+  getPlan(): DeploymentPlan {
+    return this.plan;
+  }
+
+  getRecommendations(): ServiceRecommendation[] {
+    return [...this.recommendations];
+  }
+
+  getLifecycleState(serviceId: string): LifecycleState | undefined {
+    return this.lifecycleStates.get(serviceId);
+  }
+
+  getLifecycleStates(): Map<string, LifecycleState> {
+    return new Map(this.lifecycleStates);
+  }
+
+  setLifecycleState(serviceId: string, state: LifecycleState): void {
+    this.lifecycleStates.set(serviceId, state);
+  }
+
+  private getRunningDependents(serviceId: string): string[] {
+    const dependents: string[] = [];
+    for (const rec of this.recommendations) {
+      if (rec.dependsOn.includes(serviceId)) {
+        const depState = this.lifecycleStates.get(rec.serviceId);
+        if (depState !== "destroyed") dependents.push(rec.serviceId);
+      }
+    }
+    return dependents;
+  }
+
+  async destroyService(serviceId: string): Promise<ServiceLifecycleResult> {
+    const agent = this.agents.get(serviceId);
+    if (!agent) {
+      return { serviceId, success: false, state: "destroyed", error: `No agent for ${serviceId}` };
+    }
+
+    const dependents = this.getRunningDependents(serviceId);
+    if (dependents.length > 0) {
+      const error = `Cannot destroy ${serviceId}: still has dependents [${dependents.join(", ")}]. Destroy them first.`;
+      this.bus.publishError(agent.id, error);
+      return { serviceId, success: false, state: this.lifecycleStates.get(serviceId) ?? "running", error };
+    }
+
+    const result = await agent.destroy();
+    const newState: LifecycleState = result.success ? "destroyed" : (this.lifecycleStates.get(serviceId) ?? "running");
+    this.lifecycleStates.set(serviceId, newState);
+    return { serviceId, success: result.success, state: newState, error: result.error };
+  }
+
+  async stopService(serviceId: string): Promise<ServiceLifecycleResult> {
+    const agent = this.agents.get(serviceId);
+    if (!agent) {
+      return { serviceId, success: false, state: "destroyed", error: `No agent for ${serviceId}` };
+    }
+    const result = await agent.stop();
+    const newState: LifecycleState = result.success ? "stopped" : (this.lifecycleStates.get(serviceId) ?? "running");
+    this.lifecycleStates.set(serviceId, newState);
+    return { serviceId, success: result.success, state: newState, error: result.error };
+  }
+
+  async startService(serviceId: string): Promise<ServiceLifecycleResult> {
+    const agent = this.agents.get(serviceId);
+    if (!agent) {
+      return { serviceId, success: false, state: "destroyed", error: `No agent for ${serviceId}` };
+    }
+    const result = await agent.start();
+    const newState: LifecycleState = result.success ? "running" : (this.lifecycleStates.get(serviceId) ?? "stopped");
+    this.lifecycleStates.set(serviceId, newState);
+    return { serviceId, success: result.success, state: newState, error: result.error };
+  }
+
+  async destroyAll(): Promise<ServiceLifecycleResult[]> {
+    log.warn("Destroying all services in reverse dependency order...");
+    const tiers = buildDependencyOrder(this.recommendations);
+    const results: ServiceLifecycleResult[] = [];
+
+    for (let i = tiers.length - 1; i >= 0; i--) {
+      const tier = tiers[i];
+      const tierResults = await Promise.all(
+        tier.map(async (sid) => {
+          const agent = this.agents.get(sid);
+          if (!agent) return { serviceId: sid, success: true, state: "destroyed" as LifecycleState };
+          if (this.lifecycleStates.get(sid) === "destroyed") {
+            return { serviceId: sid, success: true, state: "destroyed" as LifecycleState };
+          }
+          const r = await agent.destroy();
+          const newState: LifecycleState = r.success ? "destroyed" : (this.lifecycleStates.get(sid) ?? "running");
+          this.lifecycleStates.set(sid, newState);
+          return { serviceId: sid, success: r.success, state: newState, error: r.error };
+        })
+      );
+      results.push(...tierResults);
+    }
+
+    return results;
   }
 }

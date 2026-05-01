@@ -29,6 +29,10 @@ const estimatedCosts: Record<string, number> = {
   "api-gateway": 0.12,
   dynamodb: 0.08,
   codepipeline: 0.30,
+  eventbridge: 0.02,
+  "app-runner": 0.50,
+  opensearch: 1.30,         // t3.small.search ~$1.30/day
+  "step-functions": 0.05,
 
   // GCP services
   "vpc-gcp": 0,
@@ -46,6 +50,12 @@ const estimatedCosts: Record<string, number> = {
   "artifact-registry": 0.05, // Minimal storage
   "secret-manager": 0.02,
   "cloud-monitoring": 0.05,  // Free tier covers most
+  "cloud-build": 0.05,
+  bigquery: 0.10,            // Storage minimal; queries dominate cost
+  gke: 2.40,                 // Autopilot ~$2.40/day baseline
+  "vertex-ai": 0.20,         // Endpoint base; deployed models add cost
+  "cloud-tasks": 0.02,
+  "cloud-workflows": 0.02,
 };
 
 export function estimateCosts(serviceIds: string[]): CostBreakdown {

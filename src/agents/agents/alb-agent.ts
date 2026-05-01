@@ -48,12 +48,14 @@ variable "security_group_id" { type = string }
 
 output "alb_arn" { value = aws_lb.main.arn }
 output "alb_dns_name" { value = aws_lb.main.dns_name }
+output "alb_zone_id" { value = aws_lb.main.zone_id }
 output "target_group_arn" { value = aws_lb_target_group.app.arn }
 `;
 
     writeFileSync(join(this.context.artifactDir, "main.tf"), tf);
     this.publishOutput("albArn", "${aws_lb.main.arn}");
     this.publishOutput("albDnsName", "${aws_lb.main.dns_name}");
+    this.publishOutput("albZoneId", "${aws_lb.main.zone_id}");
     this.publishOutput("targetGroupArn", "${aws_lb_target_group.app.arn}");
   }
 

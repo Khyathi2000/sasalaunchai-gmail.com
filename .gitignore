@@ -3,6 +3,8 @@ plans/
 .launch/
 .launch-test/
 .launch-e2e/
+.launch-gcp-test/
+.launch-smoke/
 node_modules/
 dist/
 

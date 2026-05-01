@@ -39,6 +39,7 @@ output "bucket_domain" { value = aws_s3_bucket.main.bucket_regional_domain_name 
     writeFileSync(join(this.context.artifactDir, "main.tf"), tf);
     this.publishOutput("bucketName", "${aws_s3_bucket.main.id}");
     this.publishOutput("bucketArn", "${aws_s3_bucket.main.arn}");
+    this.publishOutput("bucketRegionalDomainName", "${aws_s3_bucket.main.bucket_regional_domain_name}");
   }
 
   protected async configure(): Promise<void> { this.log("S3 configured"); }

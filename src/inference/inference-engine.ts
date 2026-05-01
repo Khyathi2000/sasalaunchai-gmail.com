@@ -8,6 +8,13 @@ import { inferMessagingServices } from "./rules/messaging.js";
 import { inferCachingServices } from "./rules/caching.js";
 import { inferAuthServices } from "./rules/auth.js";
 import { inferObservabilityServices } from "./rules/observability.js";
+import { inferApiServices } from "./rules/api.js";
+import { inferEventServices } from "./rules/events.js";
+import { inferWorkflowServices } from "./rules/workflows.js";
+import { inferAnalyticsServices } from "./rules/analytics.js";
+import { inferMLServices } from "./rules/ml.js";
+import { inferK8sServices } from "./rules/k8s.js";
+import { inferSearchServices } from "./rules/search.js";
 
 export function inferServices(
   codebase: ParsedCodebase,
@@ -19,10 +26,17 @@ export function inferServices(
     ...inferNetworkingServices(codebase, provider),
     ...inferAuthServices(codebase, provider),
     ...inferComputeServices(codebase, provider),
+    ...inferK8sServices(codebase, provider),
     ...inferDatabaseServices(codebase, provider),
     ...inferStorageServices(codebase, provider),
     ...inferCachingServices(codebase, provider),
     ...inferMessagingServices(codebase, provider),
+    ...inferEventServices(codebase, provider),
+    ...inferWorkflowServices(codebase, provider),
+    ...inferApiServices(codebase, provider),
+    ...inferSearchServices(codebase, provider),
+    ...inferAnalyticsServices(codebase, provider),
+    ...inferMLServices(codebase, provider),
     ...inferObservabilityServices(codebase, provider),
   ];
 

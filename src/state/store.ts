@@ -1,12 +1,14 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import type { AgentStatusType } from "../types/cloud.js";
+import type { LifecycleState } from "../agents/agent-base.js";
 
 export interface DeploymentState {
   phase: string;
   startedAt: string;
   agents: Record<string, {
     status: AgentStatusType;
+    state?: LifecycleState;
     outputs: Record<string, unknown>;
     startedAt?: string;
     completedAt?: string;
@@ -52,14 +54,31 @@ export class StateStore {
     }
     this.state.agents[agentId].status = status;
     if (outputs) this.state.agents[agentId].outputs = outputs;
-    if (status === "done" || status === "error") {
+    if (status === "done") {
       this.state.agents[agentId].completedAt = new Date().toISOString();
+      this.state.agents[agentId].state = "running";
+    }
+    if (status === "error") {
+      this.state.agents[agentId].completedAt = new Date().toISOString();
+    }
+    this.save();
+  }
+
+  setAgentLifecycleState(agentId: string, state: LifecycleState): void {
+    if (!this.state.agents[agentId]) {
+      this.state.agents[agentId] = { status: "idle", state, outputs: {}, startedAt: new Date().toISOString() };
+    } else {
+      this.state.agents[agentId].state = state;
     }
     this.save();
   }
 
   getAgentStatus(agentId: string): AgentStatusType | undefined {
     return this.state.agents[agentId]?.status;
+  }
+
+  getAgentLifecycleState(agentId: string): LifecycleState | undefined {
+    return this.state.agents[agentId]?.state;
   }
 
   getState(): DeploymentState {

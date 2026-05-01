@@ -1,0 +1,14 @@
+rules_version = '2';
+
+// Default-deny ruleset shipped by Launch Platform.
+// Replace with rules that match your data model before going to production.
+// See: https://firebase.google.com/docs/rules/rules-language
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Deny all reads and writes by default. Add explicit allow rules below.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

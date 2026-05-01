@@ -17,6 +17,13 @@ import { Route53Agent } from "./agents/route53-agent.js";
 import { ECRAgent } from "./agents/ecr-agent.js";
 import { CloudWatchAgent } from "./agents/cloudwatch-agent.js";
 import { SecretsManagerAgent } from "./agents/secrets-manager-agent.js";
+import { DynamoDBAgent } from "./agents/dynamodb-agent.js";
+import { ApiGatewayAgent } from "./agents/api-gateway-agent.js";
+import { CognitoAgent } from "./agents/cognito-agent.js";
+import { EventBridgeAgent } from "./agents/eventbridge-agent.js";
+import { AppRunnerAgent } from "./agents/app-runner-agent.js";
+import { OpenSearchAgent } from "./agents/opensearch-agent.js";
+import { StepFunctionsAgent } from "./agents/step-functions-agent.js";
 
 // GCP Agents
 import { VPCGCPAgent } from "./agents/vpc-gcp-agent.js";
@@ -34,6 +41,12 @@ import { PubSubAgent } from "./agents/pubsub-agent.js";
 import { ArtifactRegistryAgent } from "./agents/artifact-registry-agent.js";
 import { SecretManagerGCPAgent } from "./agents/secret-manager-agent.js";
 import { CloudMonitoringAgent } from "./agents/cloud-monitoring-agent.js";
+import { CloudBuildAgent } from "./agents/cloud-build-agent.js";
+import { BigQueryAgent } from "./agents/bigquery-agent.js";
+import { GKEAgent } from "./agents/gke-agent.js";
+import { VertexAIAgent } from "./agents/vertex-ai-agent.js";
+import { CloudTasksAgent } from "./agents/cloud-tasks-agent.js";
+import { CloudWorkflowsAgent } from "./agents/cloud-workflows-agent.js";
 
 type AgentConstructor = new (rec: ServiceRecommendation) => DeploymentAgent;
 
@@ -53,6 +66,13 @@ const awsAgentMap: Record<string, AgentConstructor> = {
   ecr: ECRAgent,
   cloudwatch: CloudWatchAgent,
   "secrets-manager": SecretsManagerAgent,
+  dynamodb: DynamoDBAgent,
+  "api-gateway": ApiGatewayAgent,
+  cognito: CognitoAgent,
+  eventbridge: EventBridgeAgent,
+  "app-runner": AppRunnerAgent,
+  opensearch: OpenSearchAgent,
+  "step-functions": StepFunctionsAgent,
 };
 
 const gcpAgentMap: Record<string, AgentConstructor> = {
@@ -71,6 +91,12 @@ const gcpAgentMap: Record<string, AgentConstructor> = {
   "artifact-registry": ArtifactRegistryAgent,
   "secret-manager": SecretManagerGCPAgent,
   "cloud-monitoring": CloudMonitoringAgent,
+  "cloud-build": CloudBuildAgent,
+  bigquery: BigQueryAgent,
+  gke: GKEAgent,
+  "vertex-ai": VertexAIAgent,
+  "cloud-tasks": CloudTasksAgent,
+  "cloud-workflows": CloudWorkflowsAgent,
 };
 
 const agentMap: Record<string, AgentConstructor> = {
