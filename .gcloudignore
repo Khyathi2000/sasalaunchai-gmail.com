@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules
+web/node_modules
+.next
+web/.next
+dist
+.launch
+.launch-*
+.env
+.env.*
+!.env.example
+docs
+*.md
+**/*.tsbuildinfo
+plans
+Google Cloud Deployments.txt
