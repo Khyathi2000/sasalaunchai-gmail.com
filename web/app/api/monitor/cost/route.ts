@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   }
 
   return sseResponse(async (ctrl, signal) => {
-    const session = readSession(sid);
+    const session = await readSession(sid);
     if (!session?.plan) {
       ctrl.send("error", { message: "no plan in session" });
       return;

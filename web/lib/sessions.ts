@@ -1,7 +1,11 @@
-// Session-side persistence for web sessions. Keeps codebase + analysis +
-// recommendations + plan info in `.launch/web/<sid>/`.
+// Session-side persistence for web sessions.
+//
+// State (codebase, analysis, recommendations, plan, planId) is stored in
+// Firestore so it survives Cloud Run revision swaps and is visible across
+// instances. Filesystem dirs are still provided for transient terraform
+// working artifacts (per-instance, ephemeral by design).
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { mkdirSync } from "fs";
 import { join } from "path";
 import type {
   ParsedCodebase,
@@ -9,8 +13,10 @@ import type {
   ServiceRecommendation,
   DeploymentPlan,
 } from "./core.js";
+import { firestore } from "./firestore.js";
 
-const ROOT_WORKDIR = process.env.LAUNCH_WEB_WORKDIR || ".launch/web";
+const ROOT_WORKDIR = process.env.LAUNCH_WEB_WORKDIR || "/tmp/launch-web";
+const COLLECTION = "sessions";
 
 export interface SessionRecord {
   sid: string;
@@ -24,48 +30,41 @@ export interface SessionRecord {
   planId?: string;
 }
 
-function sessionDir(sid: string): string {
-  return join(process.cwd(), ROOT_WORKDIR, sid);
+function workDir(sid: string): string {
+  return join(ROOT_WORKDIR, sid);
 }
 
-function sessionFile(sid: string): string {
-  return join(sessionDir(sid), "session.json");
-}
-
+// Returns a transient per-instance working directory for terraform artifacts.
+// Not used for session state — that lives in Firestore.
 export function ensureSessionDir(sid: string): string {
-  const dir = sessionDir(sid);
+  const dir = workDir(sid);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export function readSession(sid: string): SessionRecord | null {
-  const file = sessionFile(sid);
-  if (!existsSync(file)) return null;
-  try {
-    return JSON.parse(readFileSync(file, "utf-8")) as SessionRecord;
-  } catch {
-    return null;
-  }
+export async function readSession(sid: string): Promise<SessionRecord | null> {
+  const snap = await firestore().collection(COLLECTION).doc(sid).get();
+  if (!snap.exists) return null;
+  return snap.data() as SessionRecord;
 }
 
-export function writeSession(record: SessionRecord): void {
-  ensureSessionDir(record.sid);
+export async function writeSession(record: SessionRecord): Promise<void> {
   record.updatedAt = new Date().toISOString();
-  writeFileSync(sessionFile(record.sid), JSON.stringify(record, null, 2));
+  await firestore().collection(COLLECTION).doc(record.sid).set(record);
 }
 
-export function updateSession(
+export async function updateSession(
   sid: string,
   update: (r: SessionRecord) => SessionRecord,
-): SessionRecord {
+): Promise<SessionRecord> {
   const existing =
-    readSession(sid) ?? {
+    (await readSession(sid)) ?? {
       sid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
   const next = update(existing);
-  writeSession(next);
+  await writeSession(next);
   return next;
 }
 

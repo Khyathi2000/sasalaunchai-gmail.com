@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     applyMode?: boolean;
   };
 
-  const session = readSession(body.sid);
+  const session = await readSession(body.sid);
   if (!session?.codebase || !session.recommendations) {
     return NextResponse.json({ error: "session/inference missing" }, { status: 404 });
   }
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   };
 
   const planId = `plan-${body.sid}`;
-  updateSession(body.sid, (r) => ({ ...r, plan, planId }));
+  await updateSession(body.sid, (r) => ({ ...r, plan, planId }));
 
   return NextResponse.json({
     planId,

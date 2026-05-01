@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     decommissionSource?: boolean;
   };
 
-  const session = readSession(body.sid);
+  const session = await readSession(body.sid);
   if (!session?.codebase || !session.planId) {
     return new Response(JSON.stringify({ error: "no source deployment in session" }), {
       status: 404,
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
   const targetPlanId = `${session.planId}-target-${body.targetProvider}`;
   registerOrchestrator(targetPlanId, migration.getTarget());
-  updateSession(body.sid, (r) => ({
+  await updateSession(body.sid, (r) => ({
     ...r,
     plan: targetPlan,
     planId: targetPlanId,

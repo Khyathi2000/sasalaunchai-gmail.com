@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   if (!sid) return new Response("sid required", { status: 400 });
 
   return sseResponse(async (ctrl, signal) => {
-    const session = readSession(sid);
+    const session = await readSession(sid);
     if (!session?.plan) {
       ctrl.send("error", { message: "no plan in session" });
       return;

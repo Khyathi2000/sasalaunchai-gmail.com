@@ -15,7 +15,7 @@ export async function POST(
     sid: string;
     action: "stop" | "start" | "destroy";
   };
-  const session = readSession(body.sid);
+  const session = await readSession(body.sid);
   if (!session?.planId) {
     return new Response(JSON.stringify({ error: "no planId" }), {
       status: 404,
