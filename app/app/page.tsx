@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import { Header } from "@/components/Header";
-import { AuthPanel } from "@/components/AuthPanel";
 import { Footer } from "@/components/Footer";
 import { InputPanel } from "@/components/InputPanel";
 import { AnalysisStream } from "@/components/AnalysisStream";
@@ -54,7 +53,6 @@ export default function AppPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <AuthPanel />
       <main className="flex-1">
         <InputPanel />
         <AnalysisStream />

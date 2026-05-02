@@ -48,6 +48,22 @@ export function useEventStream(
 }
 
 /**
+ * Error thrown when a POST stream call gets a non-streaming HTTP error
+ * response. `body` holds the parsed JSON body when present, so callers can
+ * branch on `body.error` codes (e.g. `github_not_connected`).
+ */
+export class StreamHttpError extends Error {
+  constructor(
+    public status: number,
+    public body: { error?: string; message?: string; [k: string]: unknown } | null,
+    url: string,
+  ) {
+    super(`POST ${url} failed: ${status}${body?.error ? ` (${body.error})` : ""}`);
+    this.name = "StreamHttpError";
+  }
+}
+
+/**
  * One-shot POST that returns a streamed response (for endpoints that take a
  * body and stream back). Browsers cannot use EventSource for POST, so we
  * decode the SSE wire format manually.
@@ -65,7 +81,9 @@ export async function postEventStream(
     signal,
   });
   if (!res.ok || !res.body) {
-    throw new Error(`POST ${url} failed: ${res.status}`);
+    let parsed: { error?: string; message?: string } | null = null;
+    try { parsed = await res.json(); } catch { /* non-JSON body */ }
+    throw new StreamHttpError(res.status, parsed, url);
   }
 
   const reader = res.body.getReader();
