@@ -1,16 +1,13 @@
 .git
 .gitignore
 node_modules
-web/node_modules
 .next
-web/.next
-dist
 .launch
 .launch-*
 .env
 .env.*
 !.env.example
-docs
+.clerk
 README.md
 LICENSE
 *.md
@@ -22,4 +19,3 @@ Dockerfile
 cloudbuild.yaml
 scripts
 plans
-Google Cloud Deployments.txt

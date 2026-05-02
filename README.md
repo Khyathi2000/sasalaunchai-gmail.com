@@ -3,7 +3,6 @@
 Multi-cloud deployment platform. Sign in with GitHub, point Launch at any repo you can access, it analyzes the codebase with Claude, infers the cloud services it needs, generates Terraform, and deploys.
 
 ```
-cd web
 npm install
 npm run dev      # http://localhost:3000
 ```
@@ -27,31 +26,30 @@ codebase ──► analyze ──► infer services ──► plan ──► dep
 
 ```
 launch-platform/
-├── Dockerfile                  # multi-stage: terraform CLI + Next standalone
-├── cloudbuild.yaml             # Cloud Build → Artifact Registry → Cloud Run
-├── scripts/                    # gcp bootstrap + secret loaders
-└── web/                        # the Next.js app — single source of truth
-    ├── app/
-    │   ├── api/                # SSE route handlers (analyze, deploy, monitor, ...)
-    │   ├── login/[[...rest]]/  # Clerk sign-in
-    │   ├── signup/[[...rest]]/ # Clerk sign-up
-    │   ├── app/                # main dashboard
-    │   └── page.tsx            # landing
-    ├── components/             # InputPanel, ServiceGrid, DeployTimeline, CostChart, ...
-    ├── lib/
-    │   ├── auth/               # Clerk → GitHub OAuth token helper
-    │   ├── core.ts             # re-exports of src/core/* for route handlers
-    │   ├── firestore.ts        # session backend (ADC on Cloud Run)
-    │   └── sessions.ts         # Firestore-backed session store
-    ├── middleware.ts           # Clerk middleware (protects /app + /api/*)
-    └── src/core/               # core TypeScript: agents, analysis, inference, monitoring, state
-        ├── agents/             # 40+ DeploymentAgents + orchestrator + terraform-runner
-        ├── analysis/           # parser-agent + Claude analyzer
-        ├── inference/          # rule-based + LLM-refined service inference
-        ├── monitoring/         # cost / metrics / health collectors
-        ├── state/              # store / journal / lock
-        ├── templates/          # placeholder TF assets (lambda code, firestore.rules)
-        └── types/              # plan, cloud, events
+├── Dockerfile           # multi-stage: terraform CLI + Next standalone
+├── cloudbuild.yaml      # Cloud Build → Artifact Registry → Cloud Run
+├── scripts/             # gcp bootstrap + secret loaders
+├── app/                 # Next.js App Router
+│   ├── api/             # SSE route handlers (analyze, deploy, monitor, ...)
+│   ├── login/[[...rest]]/   # Clerk sign-in
+│   ├── signup/[[...rest]]/  # Clerk sign-up
+│   ├── app/             # main dashboard
+│   └── page.tsx         # landing
+├── components/          # InputPanel, ServiceGrid, DeployTimeline, CostChart, ...
+├── lib/
+│   ├── auth/            # Clerk → GitHub OAuth token helper
+│   ├── core.ts          # re-exports of src/core/* for route handlers
+│   ├── firestore.ts     # session backend (ADC on Cloud Run)
+│   └── sessions.ts      # Firestore-backed session store
+├── middleware.ts        # Clerk middleware (protects /app + /api/*)
+└── src/core/            # core TypeScript called by route handlers
+    ├── agents/          # 40+ DeploymentAgents + orchestrator + terraform-runner
+    ├── analysis/        # parser-agent + Claude analyzer
+    ├── inference/       # rule-based + LLM-refined service inference
+    ├── monitoring/      # cost / metrics / health collectors
+    ├── state/           # store / journal / lock
+    ├── templates/       # placeholder TF assets (lambda code, firestore.rules)
+    └── types/           # plan, cloud, events
 ```
 
 ## Quick start
@@ -62,7 +60,7 @@ launch-platform/
 - Clerk account with GitHub social connection enabled (scopes: `repo read:user`)
 - AWS or GCP credentials when you're ready to deploy (paste them in the UI's auth bar)
 
-**Environment** (`web/.env.local`):
+**Environment** (`.env.local` at the repo root — see `.env.example`):
 
 ```
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
@@ -74,7 +72,6 @@ ANTHROPIC_API_KEY=sk-ant-...
 
 **Run:**
 ```
-cd web
 npm install
 npm run dev      # http://localhost:3000
 ```
@@ -93,11 +90,11 @@ When wiring Clerk into prod: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` must be availab
 
 There are 40+ agents covering AWS and GCP. To add another:
 
-1. Copy `web/src/core/agents/agents/_template-agent.ts` to `<id>-agent.ts`.
+1. Copy `src/core/agents/agents/_template-agent.ts` to `<id>-agent.ts`.
 2. Implement `provision()` — write `main.tf`, publish outputs.
-3. Register in `web/src/core/agents/agent-registry.ts`.
-4. Add an inference rule in `web/src/core/inference/rules/`.
-5. Add a cost entry in `web/src/core/monitoring/collectors/cost.ts` and a service-grid entry in `web/components/ServiceGrid.tsx`.
+3. Register in `src/core/agents/agent-registry.ts`.
+4. Add an inference rule in `src/core/inference/rules/`.
+5. Add a cost entry in `src/core/monitoring/collectors/cost.ts` and a service-grid entry in `components/ServiceGrid.tsx`.
 
 ## Status
 
