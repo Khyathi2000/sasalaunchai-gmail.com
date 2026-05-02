@@ -13,12 +13,22 @@ options:
 steps:
   - id: build
     name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    secretEnv:
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+      - NEXT_PUBLIC_CLERK_SIGN_IN_URL
+      - NEXT_PUBLIC_CLERK_SIGN_UP_URL
     args:
-      - build
-      - --tag=${_IMAGE}:${BUILD_ID}
-      - --tag=${_IMAGE}:latest
-      - --cache-from=${_IMAGE}:latest
-      - .
+      - -c
+      - |
+        docker build \
+          --build-arg=NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+          --build-arg=NEXT_PUBLIC_CLERK_SIGN_IN_URL="$$NEXT_PUBLIC_CLERK_SIGN_IN_URL" \
+          --build-arg=NEXT_PUBLIC_CLERK_SIGN_UP_URL="$$NEXT_PUBLIC_CLERK_SIGN_UP_URL" \
+          --tag=${_IMAGE}:${BUILD_ID} \
+          --tag=${_IMAGE}:latest \
+          --cache-from=${_IMAGE}:latest \
+          .
 
   - id: push
     name: gcr.io/cloud-builders/docker
@@ -44,14 +54,21 @@ steps:
       - --concurrency=20
       - --port=8080
       - --set-env-vars=NODE_ENV=production,LAUNCH_WEB_WORKDIR=/tmp/launch,GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
-      # Web reads GitHub OAuth tokens from Clerk per-request; no GITHUB_TOKEN secret needed.
-      # Clerk: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be present at BUILD time (inlined into client
-      # bundles) — pass it as a build arg via cloudbuild substitution if you wire Clerk into prod.
-      # CLERK_SECRET_KEY is a runtime secret; add it to --set-secrets below when going live.
-      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,CLAUDE_MODEL=CLAUDE_MODEL:latest
+      # NEXT_PUBLIC_CLERK_* keys are baked into the image at BUILD time (see steps[0]).
+      # CLERK_SECRET_KEY is a runtime-only secret.
+      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,CLAUDE_MODEL=CLAUDE_MODEL:latest,CLERK_SECRET_KEY=CLERK_SECRET_KEY:latest
 
 images:
   - ${_IMAGE}:${BUILD_ID}
   - ${_IMAGE}:latest
 
 timeout: 1800s
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/versions/latest
+      env: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_CLERK_SIGN_IN_URL/versions/latest
+      env: NEXT_PUBLIC_CLERK_SIGN_IN_URL
+    - versionName: projects/${PROJECT_ID}/secrets/NEXT_PUBLIC_CLERK_SIGN_UP_URL/versions/latest
+      env: NEXT_PUBLIC_CLERK_SIGN_UP_URL
