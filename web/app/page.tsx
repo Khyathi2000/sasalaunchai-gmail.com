@@ -36,7 +36,7 @@ export default function Landing() {
                 In one click.<span className="caret"></span>
               </h1>
               <p className="mt-8 max-w-xl text-sm leading-relaxed text-foreground/80 md:text-base">
-                Point Launch at a Git URL. Claude reads the codebase. The inference
+                Point Launch at a Git URL. Agents read the codebase. The inference
                 engine recommends services. Per-service agents generate Terraform,
                 merge into one stack, and apply. AWS or GCP. Local-first, open source.
               </p>
@@ -51,7 +51,7 @@ export default function Landing() {
                   <span aria-hidden>]</span>
                 </Link>
                 <span className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-                  → /app · runs locally · no signup
+                  → sign in with github
                 </span>
               </div>
 
@@ -155,7 +155,7 @@ export default function Landing() {
             <div className="grid gap-px bg-border md:grid-cols-3">
               <Principle
                 title="Your machine. Your creds."
-                body="Runs on localhost. AWS keys / GCP service account JSON live in the dev process — never sent to a server we control. No accounts, no signup, no telemetry."
+                body="AWS keys / GCP service account JSON live in the dev process — never sent to a server we control. Sign in with GitHub so we can analyze your private repos with your own permissions; no third-party telemetry."
               />
               <Principle
                 title="Real Terraform. No magic."

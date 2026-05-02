@@ -67,11 +67,3 @@ export function getCredentialEnv(): NodeJS.ProcessEnv {
 export function getGCPCredFilePath(): string | null {
   return _gcpCredFilePath;
 }
-
-export function setGitHubToken(token: string): void {
-  process.env.GITHUB_TOKEN = token;
-}
-
-export function hasGitHubToken(): boolean {
-  return !!process.env.GITHUB_TOKEN;
-}

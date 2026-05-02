@@ -14,7 +14,7 @@ export async function stepAnalyze(plan: DeploymentPlan): Promise<StepResult> {
   // Phase 1: Parse codebase
   const parseSpinner = createSpinner("Scanning codebase...").start();
   try {
-    lastParsedCodebase = await runParserAgent(plan.source, (msg) => {
+    lastParsedCodebase = await runParserAgent(plan.source, process.env.GITHUB_TOKEN, (msg) => {
       parseSpinner.text = msg;
     });
     parseSpinner.succeed(`Parsed ${lastParsedCodebase.files.length} files`);

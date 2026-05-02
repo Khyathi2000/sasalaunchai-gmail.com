@@ -1,6 +1,7 @@
-import { runParserAgent, runAnalyzerAgent } from "@/lib/core";
+import { runParserAgent, runAnalyzerAgent, RepoNotAccessibleError } from "@/lib/core";
 import { sseResponse } from "@/lib/sse-server";
 import { newSessionId, updateSession } from "@/lib/sessions";
+import { getCurrentUserGithubToken, GithubNotConnectedError } from "@/lib/auth/github-token";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,17 +18,32 @@ export async function POST(req: Request) {
   }
   const sid = body.sid ?? newSessionId();
 
+  let githubToken: string;
+  try {
+    githubToken = await getCurrentUserGithubToken();
+  } catch (err) {
+    if (err instanceof GithubNotConnectedError) {
+      return new Response(JSON.stringify({ error: "github_not_connected", message: err.message }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    throw err;
+  }
+
   return sseResponse(async (ctrl) => {
     ctrl.send("session", { sid });
 
     let codebase;
     try {
-      codebase = await runParserAgent(source, (message, fileCount) => {
+      codebase = await runParserAgent(source, githubToken, (message, fileCount) => {
         ctrl.send("parse-progress", { message, fileCount });
       });
     } catch (err) {
+      const code = err instanceof RepoNotAccessibleError ? "repo_not_accessible" : undefined;
       ctrl.send("error", {
         stage: "parse",
+        code,
         message: err instanceof Error ? err.message : String(err),
       });
       return;

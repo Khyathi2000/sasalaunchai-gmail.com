@@ -2,6 +2,13 @@ import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, basename } from "path";
 import type { ParsedCodebase, ParsedFile, FileNode } from "../types/index.js";
 
+export class RepoNotAccessibleError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RepoNotAccessibleError";
+  }
+}
+
 const LANGUAGE_MAP: Record<string, string> = {
   ts: "TypeScript", tsx: "TypeScript (React)", js: "JavaScript", jsx: "JavaScript (React)",
   py: "Python", rb: "Ruby", go: "Go", rs: "Rust", java: "Java", kt: "Kotlin",
@@ -227,6 +234,7 @@ function parseGithubUrl(url: string): { owner: string; repo: string } | null {
 
 async function parseGithubCodebase(
   githubUrl: string,
+  githubToken: string | undefined,
   onProgress: (message: string, fileCount?: number) => void
 ): Promise<ParsedCodebase> {
   const parsed = parseGithubUrl(githubUrl);
@@ -237,15 +245,19 @@ async function parseGithubCodebase(
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
   };
-  if (process.env.GITHUB_TOKEN) {
-    headers["Authorization"] = `Bearer ${process.env.GITHUB_TOKEN}`;
+  if (githubToken) {
+    headers["Authorization"] = `Bearer ${githubToken}`;
   }
 
   onProgress(`Connecting to GitHub: ${owner}/${repo}`);
   const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
   if (!repoRes.ok) {
-    if (repoRes.status === 404) throw new Error(`Repository not found: ${owner}/${repo}`);
-    if (repoRes.status === 403) throw new Error("GitHub rate limit exceeded. Set GITHUB_TOKEN.");
+    if (repoRes.status === 404) {
+      throw new RepoNotAccessibleError(
+        `Couldn't access ${owner}/${repo}. Make sure the repo exists and your GitHub account has access to it.`
+      );
+    }
+    if (repoRes.status === 403) throw new Error("GitHub rate limit or scope error. Try signing out and back in to re-grant repo scope.");
     throw new Error(`GitHub API error: ${repoRes.status}`);
   }
   const repoInfo = await repoRes.json() as { default_branch: string; name: string };
@@ -335,10 +347,11 @@ function isGithubUrl(source: string): boolean {
 
 export async function runParserAgent(
   source: string,
+  githubToken: string | undefined,
   onProgress: ParserProgressCallback
 ): Promise<ParsedCodebase> {
   if (isGithubUrl(source)) {
-    return parseGithubCodebase(source, onProgress);
+    return parseGithubCodebase(source, githubToken, onProgress);
   } else {
     return parseLocalCodebase(source, onProgress);
   }

@@ -1,23 +1,22 @@
 import { NextResponse } from "next/server";
 import { probeCredentials } from "@/lib/credentials";
-import { setAWSCredentials, setGCPCredentials, setGitHubToken, hasGitHubToken } from "@/lib/credential-store";
+import { setAWSCredentials, setGCPCredentials } from "@/lib/credential-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const status = await probeCredentials();
-  return NextResponse.json({ ...status, github: { ok: hasGitHubToken() } });
+  return NextResponse.json(status);
 }
 
 export async function POST(req: Request) {
   const body = (await req.json()) as {
     aws?: { accessKeyId: string; secretAccessKey: string; sessionToken?: string; region: string };
     gcp?: { serviceAccountJson: string; projectId?: string };
-    github?: { token: string };
   };
 
-  const errors: { aws?: string; gcp?: string; github?: string } = {};
+  const errors: { aws?: string; gcp?: string } = {};
 
   if (body.aws) {
     try {
@@ -38,15 +37,6 @@ export async function POST(req: Request) {
     }
   }
 
-  if (body.github) {
-    try {
-      if (!body.github.token?.trim()) throw new Error("token required");
-      setGitHubToken(body.github.token.trim());
-    } catch (err) {
-      errors.github = err instanceof Error ? err.message : String(err);
-    }
-  }
-
   const status = await probeCredentials();
-  return NextResponse.json({ status: { ...status, github: { ok: hasGitHubToken() } }, errors });
+  return NextResponse.json({ status, errors });
 }

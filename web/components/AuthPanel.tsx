@@ -6,7 +6,6 @@ import { BracketButton } from "./BracketButton";
 interface CredentialStatus {
   aws: { ok: boolean; accountId?: string; region?: string; error?: string };
   gcp: { ok: boolean; projectId?: string; needsAuth: boolean; error?: string };
-  github?: { ok: boolean };
 }
 
 export function AuthPanel() {
@@ -24,9 +23,6 @@ export function AuthPanel() {
   // GCP form
   const [saJson, setSaJson] = useState("");
   const [projectId, setProjectId] = useState("");
-
-  // GitHub form
-  const [ghToken, setGhToken] = useState("");
 
   const refresh = async () => {
     try {
@@ -57,9 +53,6 @@ export function AuthPanel() {
     if (saJson.trim()) {
       body.gcp = { serviceAccountJson: saJson.trim(), projectId: projectId.trim() || undefined };
     }
-    if (ghToken.trim()) {
-      body.github = { token: ghToken.trim() };
-    }
     if (Object.keys(body).length === 0) {
       setError("Paste at least one credential set.");
       setSubmitting(false);
@@ -72,15 +65,14 @@ export function AuthPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
-      const data = (await res.json()) as { status: CredentialStatus; errors: { aws?: string; gcp?: string; github?: string } };
+      const data = (await res.json()) as { status: CredentialStatus; errors: { aws?: string; gcp?: string } };
       setStatus(data.status);
-      const e = [data.errors.aws, data.errors.gcp, data.errors.github].filter(Boolean).join(" · ");
+      const e = [data.errors.aws, data.errors.gcp].filter(Boolean).join(" · ");
       if (e) setError(e);
       else {
         // Clear secrets from form on success
         setSecretAccessKey("");
         setSaJson("");
-        setGhToken("");
         setOpen(false);
       }
     } catch (err) {
@@ -102,7 +94,6 @@ export function AuthPanel() {
             <>
               <Badge label="aws" ok={status.aws.ok} detail={status.aws.accountId ?? status.aws.error} />
               <Badge label="gcp" ok={status.gcp.ok} detail={status.gcp.projectId ?? (status.gcp.needsAuth ? "auth needed" : status.gcp.error)} />
-              <Badge label="github" ok={!!status.github?.ok} detail={status.github?.ok ? "token set" : "anonymous"} />
             </>
           )}
           {!status && <span className="text-muted-foreground">probing...</span>}
@@ -143,25 +134,6 @@ export function AuthPanel() {
               className="w-full border border-border bg-cream px-2 py-1 font-mono text-[0.65rem] focus:border-ink focus:outline-none"
             />
             <Field label="project id (override)" value={projectId} onChange={setProjectId} placeholder="auto-detected from json" />
-          </div>
-
-          <div className="space-y-3 border border-border p-4 xl:col-span-2">
-            <h3 className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">[ github ]</h3>
-            <p className="text-muted-foreground">
-              optional — only needed if you hit github's anonymous rate limit (60 req/hour). a fine-grained
-              personal-access-token with public repo read is enough.{" "}
-              <a className="underline" href="https://github.com/settings/tokens" target="_blank" rel="noreferrer">
-                create one
-              </a>
-              .
-            </p>
-            <Field
-              label="github token"
-              value={ghToken}
-              onChange={setGhToken}
-              type="password"
-              placeholder="ghp_... or github_pat_..."
-            />
           </div>
 
           <div className="flex items-center justify-between xl:col-span-2">

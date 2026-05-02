@@ -1,7 +1,7 @@
 // Re-exports of CLI-side modules so route handlers can import from one place.
 // These run in Node.js runtime only.
 
-export { runParserAgent } from "@core/analysis/parser-agent.js";
+export { runParserAgent, RepoNotAccessibleError } from "@core/analysis/parser-agent.js";
 export type { ParserProgressCallback } from "@core/analysis/parser-agent.js";
 
 export { runAnalyzerAgent } from "@core/analysis/analyzer-agent.js";

@@ -8,7 +8,7 @@ cd web && npm install && cd ..
 npm run web      # http://localhost:3000
 ```
 
-Paste a public GitHub URL or local absolute path → see streaming analysis → pick services → deploy. Supports AWS and GCP, local-only mode (your creds, your machine).
+Sign in with GitHub, paste any GitHub URL (public or private) or local absolute path → see streaming analysis → pick services → deploy. Supports AWS and GCP, your cloud creds stay on your machine.
 
 ## What it does
 
@@ -66,10 +66,18 @@ cd web && npm install && cd ..
 npm run web              # opens http://localhost:3000
 ```
 
-**Optional:** put a GitHub token in `web/.env` to avoid the 60-req/hour anonymous limit:
+**Required for the web app:** Clerk credentials (free tier is fine). In your Clerk dashboard, enable the **GitHub** social connection with scopes `repo read:user`. Then in `web/.env.local`:
+
 ```
-GITHUB_TOKEN=github_pat_...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
+CLERK_SECRET_KEY=sk_...
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
 ```
+
+Each user signs in with GitHub; the resulting OAuth token is used for repo analysis, so you can analyze any repo (public or private) you have access to.
+
+**CLI only (optional):** if you use the legacy CLI in `bin/launch.ts` against the GitHub API, set `GITHUB_TOKEN` in your shell to avoid the 60-req/hour anonymous limit. The web app does not read this variable.
 
 ## Adding a new agent
 
