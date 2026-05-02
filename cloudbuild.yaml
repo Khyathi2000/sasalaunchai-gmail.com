@@ -44,7 +44,11 @@ steps:
       - --concurrency=20
       - --port=8080
       - --set-env-vars=NODE_ENV=production,LAUNCH_WEB_WORKDIR=/tmp/launch,GOOGLE_CLOUD_PROJECT=${PROJECT_ID}
-      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,GITHUB_TOKEN=GITHUB_TOKEN:latest,CLAUDE_MODEL=CLAUDE_MODEL:latest
+      # Web reads GitHub OAuth tokens from Clerk per-request; no GITHUB_TOKEN secret needed.
+      # Clerk: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be present at BUILD time (inlined into client
+      # bundles) — pass it as a build arg via cloudbuild substitution if you wire Clerk into prod.
+      # CLERK_SECRET_KEY is a runtime secret; add it to --set-secrets below when going live.
+      - --set-secrets=ANTHROPIC_API_KEY=ANTHROPIC_API_KEY:latest,AWS_ACCESS_KEY_ID=AWS_ACCESS_KEY_ID:latest,AWS_SECRET_ACCESS_KEY=AWS_SECRET_ACCESS_KEY:latest,AWS_REGION=AWS_REGION:latest,CLAUDE_MODEL=CLAUDE_MODEL:latest
 
 images:
   - ${_IMAGE}:${BUILD_ID}
