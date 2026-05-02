@@ -2,7 +2,7 @@
 ARG TERRAFORM_VERSION=1.9.8
 
 ############################
-# 1. deps — install OS deps, terraform CLI, and npm packages for root + web
+# 1. deps — install OS deps, terraform CLI, and web npm packages
 ############################
 FROM node:22-bookworm-slim AS deps
 ARG TERRAFORM_VERSION
@@ -16,9 +16,6 @@ RUN apt-get update \
  && apt-get purge -y unzip curl \
  && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*
-
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
 
 COPY web/package.json web/package-lock.json ./web/
 # `npm ci` is strict about lockfile matching; the committed web lockfile
@@ -47,10 +44,10 @@ ENV NODE_ENV=production \
 
 COPY --from=deps /usr/local/bin/terraform /usr/local/bin/terraform
 
-# next.config.mjs sets outputFileTracingRoot to the repo root, so the standalone
-# bundle mirrors the repo layout under /app, with the entrypoint at web/server.js.
+# Standalone bundle is rooted at web/ now (no outputFileTracingRoot override);
+# entrypoint is server.js at the bundle root, with .next/static alongside.
 COPY --from=build /app/web/.next/standalone ./
-COPY --from=build /app/web/.next/static ./web/.next/static
+COPY --from=build /app/web/.next/static ./.next/static
 
 EXPOSE 8080
-CMD ["node", "web/server.js"]
+CMD ["node", "server.js"]

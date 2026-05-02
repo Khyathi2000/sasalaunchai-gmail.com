@@ -1,14 +1,14 @@
 # launch
 
-Multi-cloud deployment platform. Point it at a codebase, it analyzes it with Claude, infers the cloud services it needs, generates Terraform, and deploys.
+Multi-cloud deployment platform. Sign in with GitHub, point Launch at any repo you can access, it analyzes the codebase with Claude, infers the cloud services it needs, generates Terraform, and deploys.
 
 ```
+cd web
 npm install
-cd web && npm install && cd ..
-npm run web      # http://localhost:3000
+npm run dev      # http://localhost:3000
 ```
 
-Sign in with GitHub, paste any GitHub URL (public or private) or local absolute path → see streaming analysis → pick services → deploy. Supports AWS and GCP, your cloud creds stay on your machine.
+Sign in with GitHub → paste a repo URL or local path → see streaming analysis → pick services → deploy. Supports AWS and GCP; cloud creds stay in the dev process / Cloud Run runtime, not in any third-party DB.
 
 ## What it does
 
@@ -20,83 +20,88 @@ codebase ──► analyze ──► infer services ──► plan ──► dep
 - **Analyze**: streams a file-by-file walkthrough, Mermaid architecture diagram, tech stack, infra requirements (Claude Sonnet).
 - **Infer**: rule-based engine (regex over package.json + file contents) recommends specific services per provider; Claude Haiku optionally refines confidence.
 - **Plan**: builds a `DeploymentPlan` with selected services, region, apply mode.
-- **Deploy**: per-service "agents" each generate a Terraform file. The orchestrator merges them into one stack and runs `terraform init && terraform apply`. MessageBus events stream live to the UI.
+- **Deploy**: per-service "agents" each generate a Terraform file. The orchestrator merges them into one stack and runs `terraform init && terraform apply`. MessageBus events stream live to the UI over SSE.
 - **Monitor**: AWS Cost Explorer + CloudWatch, GCP Billing/Monitoring (when creds present). Per-service on/off + destroy. Migrate to other provider with parallel deploy.
 
 ## Repo layout
 
 ```
 launch-platform/
-├── bin/launch.ts                # CLI entry (terminal wizard)
-├── cmd/launch/main.go           # legacy Go TUI (alternate entry)
-├── src/                         # core TypeScript
-│   ├── agents/                  # one DeploymentAgent per cloud service
-│   │   ├── agent-base.ts        # abstract base + lifecycle
-│   │   ├── agent-registry.ts    # serviceId → AgentClass mapping
-│   │   ├── deployment-orchestrator.ts
-│   │   ├── terraform-runner.ts  # spawns terraform, streams logs
-│   │   ├── migration-orchestrator.ts
-│   │   ├── message-bus.ts       # EventEmitter for inter-agent IO
-│   │   └── agents/              # 40+ per-service agents
-│   ├── analysis/                # parser-agent + Claude analyzer
-│   ├── inference/               # rule-based + LLM-refined inference
-│   │   └── rules/               # one file per inference category
-│   ├── monitoring/              # cost / metrics / logs collectors
-│   ├── execution/               # legacy sync TF runner (still used by CLI)
-│   ├── state/                   # store / journal / lock
-│   ├── templates/               # placeholder TF assets (lambda code, firestore.rules)
-│   └── types/                   # plan, cloud, events
-└── web/                         # Next.js single-page app
-    ├── app/api/                 # SSE route handlers
-    ├── components/              # InputPanel, ServiceGrid, DeployTimeline, CostChart, ...
-    └── lib/                     # core re-exports, bus-registry, sessions, sse, store
+├── Dockerfile                  # multi-stage: terraform CLI + Next standalone
+├── cloudbuild.yaml             # Cloud Build → Artifact Registry → Cloud Run
+├── scripts/                    # gcp bootstrap + secret loaders
+└── web/                        # the Next.js app — single source of truth
+    ├── app/
+    │   ├── api/                # SSE route handlers (analyze, deploy, monitor, ...)
+    │   ├── login/[[...rest]]/  # Clerk sign-in
+    │   ├── signup/[[...rest]]/ # Clerk sign-up
+    │   ├── app/                # main dashboard
+    │   └── page.tsx            # landing
+    ├── components/             # InputPanel, ServiceGrid, DeployTimeline, CostChart, ...
+    ├── lib/
+    │   ├── auth/               # Clerk → GitHub OAuth token helper
+    │   ├── core.ts             # re-exports of src/core/* for route handlers
+    │   ├── firestore.ts        # session backend (ADC on Cloud Run)
+    │   └── sessions.ts         # Firestore-backed session store
+    ├── middleware.ts           # Clerk middleware (protects /app + /api/*)
+    └── src/core/               # core TypeScript: agents, analysis, inference, monitoring, state
+        ├── agents/             # 40+ DeploymentAgents + orchestrator + terraform-runner
+        ├── analysis/           # parser-agent + Claude analyzer
+        ├── inference/          # rule-based + LLM-refined service inference
+        ├── monitoring/         # cost / metrics / health collectors
+        ├── state/              # store / journal / lock
+        ├── templates/          # placeholder TF assets (lambda code, firestore.rules)
+        └── types/              # plan, cloud, events
 ```
 
 ## Quick start
 
 **Prerequisites:**
 - Node 22+ with npm
-- Terraform 1.5+ on `PATH`
-- AWS or GCP credentials (or paste them via the UI's auth bar)
+- Terraform 1.5+ on `PATH` (for actual deploys; not needed to just browse the UI)
+- Clerk account with GitHub social connection enabled (scopes: `repo read:user`)
+- AWS or GCP credentials when you're ready to deploy (paste them in the UI's auth bar)
 
-**Run:**
-```
-npm install
-cd web && npm install && cd ..
-npm run web              # opens http://localhost:3000
-```
-
-**Required for the web app:** Clerk credentials (free tier is fine). In your Clerk dashboard, enable the **GitHub** social connection with scopes `repo read:user`. Then in `web/.env.local`:
+**Environment** (`web/.env.local`):
 
 ```
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_...
 CLERK_SECRET_KEY=sk_...
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Each user signs in with GitHub; the resulting OAuth token is used for repo analysis, so you can analyze any repo (public or private) you have access to.
+**Run:**
+```
+cd web
+npm install
+npm run dev      # http://localhost:3000
+```
 
-**CLI only (optional):** if you use the legacy CLI in `bin/launch.ts` against the GitHub API, set `GITHUB_TOKEN` in your shell to avoid the 60-req/hour anonymous limit. The web app does not read this variable.
+## Deploy to Cloud Run
+
+```
+gcloud builds submit --config=cloudbuild.yaml
+```
+
+The Dockerfile produces a Next standalone image with `terraform` on PATH; Cloud Build pushes to Artifact Registry and deploys to Cloud Run. Sessions persist in Firestore via Application Default Credentials (the runtime service account `sasa-runtime`).
+
+When wiring Clerk into prod: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` must be available at **build time** (it's inlined into client bundles) — pass it as a Cloud Build substitution / `--build-arg`. `CLERK_SECRET_KEY` is a runtime secret — add it to `--set-secrets` in `cloudbuild.yaml`.
 
 ## Adding a new agent
 
-There are 40+ agents covering AWS and GCP. To add another, see [docs/contributing/adding-an-agent.md](docs/contributing/adding-an-agent.md). Tl;dr:
+There are 40+ agents covering AWS and GCP. To add another:
 
-1. Copy `src/agents/agents/_template-agent.ts` to `<id>-agent.ts`.
+1. Copy `web/src/core/agents/agents/_template-agent.ts` to `<id>-agent.ts`.
 2. Implement `provision()` — write `main.tf`, publish outputs.
-3. Register in `src/agents/agent-registry.ts`.
-4. Add an inference rule in `src/inference/rules/` so the engine recommends it.
-5. Add a cost entry in `src/monitoring/collectors/cost.ts` and `web/components/ServiceGrid.tsx`.
-6. `npm run smoke -- --agent <id>` to confirm terraform validates.
-
-## Architecture
-
-See [docs/architecture.md](docs/architecture.md) for the full walkthrough — how analyze streams, how the orchestrator merges per-agent .tf files into one stack, how SSE bridges MessageBus to the browser, how lifecycle (running / stopped / destroyed) and migration work.
+3. Register in `web/src/core/agents/agent-registry.ts`.
+4. Add an inference rule in `web/src/core/inference/rules/`.
+5. Add a cost entry in `web/src/core/monitoring/collectors/cost.ts` and a service-grid entry in `web/components/ServiceGrid.tsx`.
 
 ## Status
 
-This is an active OSS project, **not yet 1.0**. The web UI works end-to-end in artifact mode. Apply mode deploys real cloud resources via terraform — verified against AWS. Some agents are still B-tier (sane defaults but limited config knobs); see the gap analysis in `docs/architecture.md` for what's production-grade vs work-in-progress.
+Active OSS project, **not yet 1.0**. The web UI works end-to-end in artifact mode. Apply mode deploys real cloud resources via terraform — verified against AWS. Some agents are still B-tier (sane defaults but limited config knobs).
 
 ## License
 

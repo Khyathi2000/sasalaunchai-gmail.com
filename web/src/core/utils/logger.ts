@@ -1,5 +1,3 @@
-import chalk from "chalk";
-
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 let currentLevel: LogLevel = "info";
@@ -19,29 +17,21 @@ function timestamp(): string {
 
 export const log = {
   debug(msg: string, ...args: unknown[]): void {
-    if (shouldLog("debug")) {
-      console.log(chalk.gray(`[${timestamp()}] DBG`), chalk.gray(msg), ...args);
-    }
+    if (shouldLog("debug")) console.log(`[${timestamp()}] DBG`, msg, ...args);
   },
   info(msg: string, ...args: unknown[]): void {
-    if (shouldLog("info")) {
-      console.log(chalk.blue(`[${timestamp()}] INF`), msg, ...args);
-    }
+    if (shouldLog("info")) console.log(`[${timestamp()}] INF`, msg, ...args);
   },
   warn(msg: string, ...args: unknown[]): void {
-    if (shouldLog("warn")) {
-      console.log(chalk.yellow(`[${timestamp()}] WRN`), chalk.yellow(msg), ...args);
-    }
+    if (shouldLog("warn")) console.log(`[${timestamp()}] WRN`, msg, ...args);
   },
   error(msg: string, ...args: unknown[]): void {
-    if (shouldLog("error")) {
-      console.error(chalk.red(`[${timestamp()}] ERR`), chalk.red(msg), ...args);
-    }
+    if (shouldLog("error")) console.error(`[${timestamp()}] ERR`, msg, ...args);
   },
   success(msg: string): void {
-    console.log(chalk.green("  ✓"), msg);
+    console.log("  [ok]", msg);
   },
   step(msg: string): void {
-    console.log(chalk.cyan("  →"), msg);
+    console.log("  ->", msg);
   },
 };

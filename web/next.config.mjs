@@ -1,15 +1,6 @@
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
-  outputFileTracingRoot: resolve(__dirname, ".."),
-  experimental: {
-    externalDir: true,
-  },
   serverExternalPackages: [
     "@aws-sdk/client-sts",
     "@aws-sdk/client-cloudwatch",
@@ -20,8 +11,8 @@ const nextConfig = {
     "@google-cloud/pubsub",
   ],
   webpack(config) {
-    // CLI source uses NodeNext-style ".js" imports that point at ".ts" files.
-    // Tell webpack to try .ts/.tsx when it sees a .js import.
+    // Core source under src/core/ uses NodeNext-style ".js" imports that
+    // point at ".ts" files. Tell webpack to try .ts/.tsx when it sees a .js import.
     config.resolve = config.resolve ?? {};
     config.resolve.extensionAlias = {
       ...(config.resolve.extensionAlias ?? {}),
