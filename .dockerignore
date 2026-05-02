@@ -1,0 +1,25 @@
+.git
+.gitignore
+node_modules
+web/node_modules
+.next
+web/.next
+dist
+.launch
+.launch-*
+.env
+.env.*
+!.env.example
+docs
+README.md
+LICENSE
+*.md
+**/*.tsbuildinfo
+**/.DS_Store
+Dockerfile
+.dockerignore
+.gcloudignore
+cloudbuild.yaml
+scripts
+plans
+Google Cloud Deployments.txt

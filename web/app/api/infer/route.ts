@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     region: string;
     refine?: boolean;
   };
-  const session = readSession(body.sid);
+  const session = await readSession(body.sid);
   if (!session?.codebase) {
     return NextResponse.json({ error: "session/codebase missing" }, { status: 404 });
   }
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     }
   }
 
-  updateSession(body.sid, (r) => ({ ...r, recommendations }));
+  await updateSession(body.sid, (r) => ({ ...r, recommendations }));
 
   return NextResponse.json({ recommendations });
 }

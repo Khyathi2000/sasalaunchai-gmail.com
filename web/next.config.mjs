@@ -5,6 +5,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   outputFileTracingRoot: resolve(__dirname, ".."),
   experimental: {
     externalDir: true,
@@ -15,6 +16,8 @@ const nextConfig = {
     "@aws-sdk/client-cloudwatch-logs",
     "@aws-sdk/client-cost-explorer",
     "@anthropic-ai/sdk",
+    "@google-cloud/firestore",
+    "@google-cloud/pubsub",
   ],
   webpack(config) {
     // CLI source uses NodeNext-style ".js" imports that point at ".ts" files.

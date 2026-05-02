@@ -9,7 +9,7 @@ export const maxDuration = 1800;
 
 export async function POST(req: Request) {
   const { sid } = (await req.json()) as { sid: string };
-  const session = readSession(sid);
+  const session = await readSession(sid);
   if (!session?.plan || !session.recommendations || !session.planId) {
     return new Response(JSON.stringify({ error: "no plan in session" }), {
       status: 404,

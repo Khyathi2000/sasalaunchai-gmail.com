@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       filesRead: codebase.files.length,
     });
 
-    updateSession(sid, (r) => ({ ...r, source, codebase }));
+    await updateSession(sid, (r) => ({ ...r, source, codebase }));
 
     if (!process.env.ANTHROPIC_API_KEY) {
       ctrl.send("error", {
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
       const analysis = await runAnalyzerAgent(codebase, (chunk) => {
         ctrl.send("chunk", { text: chunk });
       });
-      updateSession(sid, (r) => ({ ...r, analysis }));
+      await updateSession(sid, (r) => ({ ...r, analysis }));
       ctrl.send("analysis", analysis);
       ctrl.send("done", { sid, hasAnalysis: true });
     } catch (err) {

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_req: Request, { params }: { params: Promise<{ sid: string }> }) {
   const { sid } = await params;
-  const session = readSession(sid);
+  const session = await readSession(sid);
   if (!session) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
