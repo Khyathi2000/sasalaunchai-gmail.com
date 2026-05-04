@@ -15,6 +15,7 @@ import { inferAnalyticsServices } from "./rules/analytics.js";
 import { inferMLServices } from "./rules/ml.js";
 import { inferK8sServices } from "./rules/k8s.js";
 import { inferSearchServices } from "./rules/search.js";
+import { inferCIServices } from "./rules/ci.js";
 
 export function inferServices(
   codebase: ParsedCodebase,
@@ -37,6 +38,7 @@ export function inferServices(
     ...inferSearchServices(codebase, provider),
     ...inferAnalyticsServices(codebase, provider),
     ...inferMLServices(codebase, provider),
+    ...inferCIServices(codebase, provider),
     ...inferObservabilityServices(codebase, provider),
   ];
 

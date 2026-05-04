@@ -21,3 +21,16 @@ CLAUDE.md
 plans/
 .vscode/
 .claude/
+
+# Python (analysis-service)
+analysis-service/.venv/
+analysis-service/**/__pycache__/
+analysis-service/**/*.pyc
+analysis-service/.pytest_cache/
+analysis-service/.ruff_cache/
+analysis-service/.mypy_cache/
+analysis-service/**/*.egg-info/
+
+# Test coverage
+coverage/
+.vitest/

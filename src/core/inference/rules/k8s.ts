@@ -30,7 +30,22 @@ export function inferK8sServices(codebase: ParsedCodebase, provider: string): Se
       dependsOn: ["vpc-gcp"],
     });
   }
-  // EKS for AWS would go here when an eks-agent is added.
+
+  if (provider === "aws") {
+    recs.push({
+      serviceId: "eks",
+      serviceName: "EKS",
+      category: "k8s",
+      provider: "aws",
+      reason:
+        hasHelm        ? "Helm chart detected — EKS for managed Kubernetes on AWS" :
+        hasKustomize   ? "Kustomize manifest detected" :
+        "Kubernetes manifests detected",
+      confidence: "high",
+      config: { kubernetesVersion: "1.30", desiredNodes: 2 },
+      dependsOn: ["vpc"],
+    });
+  }
 
   return recs;
 }
