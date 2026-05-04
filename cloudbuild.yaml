@@ -3,7 +3,13 @@ substitutions:
   _AR_REPO: sasa-images
   _SERVICE: sasa-web
   _RUNTIME_SA: sasa-runtime
+  _CLOUDBUILD_SA: sasa-cloudbuild
   _IMAGE: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}
+
+# Use our dedicated build SA (set up by scripts/gcp-bootstrap.sh) instead of the
+# compute default SA. Required for source upload to work and avoids granting
+# broad perms to the default SA. Custom SA requires CLOUD_LOGGING_ONLY below.
+serviceAccount: projects/${PROJECT_ID}/serviceAccounts/${_CLOUDBUILD_SA}@${PROJECT_ID}.iam.gserviceaccount.com
 
 options:
   logging: CLOUD_LOGGING_ONLY
