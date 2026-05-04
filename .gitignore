@@ -19,3 +19,5 @@ next-env.d.ts
 *.log
 CLAUDE.md
 plans/
+.vscode/
+.claude/

@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "secrets:pull": "node scripts/secrets.mjs pull",
     "secrets:push": "node scripts/secrets.mjs push",
-    "secrets:list": "node scripts/secrets.mjs list"
+    "secrets:list": "node scripts/secrets.mjs list",
+    "logs": "node scripts/logs.mjs",
+    "deploy": "node scripts/deploy.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.73.0",
