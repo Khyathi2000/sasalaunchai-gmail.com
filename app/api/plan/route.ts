@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { join } from "path";
 import { readSession, updateSession, ensureSessionDir } from "@/lib/sessions";
+import { ensureUser } from "@/lib/auth/user";
 import type { DeploymentPlan, ServiceSelection } from "@/lib/core";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
+  const userId = await ensureUser();
   const body = (await req.json()) as {
     sid: string;
     provider: "aws" | "gcp";
@@ -14,7 +16,7 @@ export async function POST(req: Request) {
     applyMode?: boolean;
   };
 
-  const session = await readSession(body.sid);
+  const session = await readSession(body.sid, userId);
   if (!session?.codebase || !session.recommendations) {
     return NextResponse.json({ error: "session/inference missing" }, { status: 404 });
   }
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
   };
 
   const planId = `plan-${body.sid}`;
-  await updateSession(body.sid, (r) => ({ ...r, plan, planId }));
+  await updateSession(body.sid, userId, (r) => ({ ...r, plan, planId }));
 
   return NextResponse.json({
     planId,

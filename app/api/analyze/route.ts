@@ -1,6 +1,7 @@
 import { runParserAgent, runAnalyzerAgent, RepoNotAccessibleError } from "@/lib/core";
 import { sseResponse } from "@/lib/sse-server";
 import { newSessionId, updateSession } from "@/lib/sessions";
+import { ensureUser } from "@/lib/auth/user";
 import { getCurrentUserGithubToken, GithubNotConnectedError } from "@/lib/auth/github-token";
 
 export const runtime = "nodejs";
@@ -8,6 +9,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  const userId = await ensureUser();
   const body = (await req.json()) as { source: string; sid?: string };
   const source = body.source?.trim();
   if (!source) {
@@ -56,7 +58,7 @@ export async function POST(req: Request) {
       filesRead: codebase.files.length,
     });
 
-    await updateSession(sid, (r) => ({ ...r, source, codebase }));
+    await updateSession(sid, userId, (r) => ({ ...r, source, codebase }));
 
     if (!process.env.ANTHROPIC_API_KEY) {
       ctrl.send("error", {
@@ -71,7 +73,7 @@ export async function POST(req: Request) {
       const analysis = await runAnalyzerAgent(codebase, (chunk) => {
         ctrl.send("chunk", { text: chunk });
       });
-      await updateSession(sid, (r) => ({ ...r, analysis }));
+      await updateSession(sid, userId, (r) => ({ ...r, analysis }));
       ctrl.send("analysis", analysis);
       ctrl.send("done", { sid, hasAnalysis: true });
     } catch (err) {

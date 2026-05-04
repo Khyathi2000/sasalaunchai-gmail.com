@@ -1,12 +1,14 @@
 import { sseResponse } from "@/lib/sse-server";
 import { estimateCosts, fetchRealCosts } from "@/lib/core";
 import { readSession } from "@/lib/sessions";
+import { ensureUser } from "@/lib/auth/user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
 
 export async function GET(req: Request) {
+  const userId = await ensureUser();
   const { searchParams } = new URL(req.url);
   const sid = searchParams.get("sid");
   if (!sid) {
@@ -14,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   return sseResponse(async (ctrl, signal) => {
-    const session = await readSession(sid);
+    const session = await readSession(sid, userId);
     if (!session?.plan) {
       ctrl.send("error", { message: "no plan in session" });
       return;
