@@ -12,6 +12,14 @@ export default defineConfig({
     },
     include: ["lib/**/*.test.ts", "src/**/*.test.ts"],
     testTimeout: 30000,
+    hookTimeout: 30000,
+    pool: "threads",
+    poolOptions: {
+      threads: {
+        singleThread: false,
+        maxThreads: 4,
+      },
+    },
   },
   resolve: {
     // Source code uses NodeNext-style ".js" imports that point at ".ts"
