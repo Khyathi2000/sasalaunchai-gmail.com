@@ -4,6 +4,7 @@
 
 :root {
   --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "Menlo", monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
   --bg: 54 33% 97%;
   --fg: 0 0% 4%;
   --muted: 0 0% 42%;
@@ -11,6 +12,9 @@
   --ok: 142 60% 30%;
   --err: 0 70% 40%;
   --warn: 38 80% 40%;
+  --ember: 18 90% 55%;
+  --ember-dim: 18 60% 45%;
+  --ember-glow: 28 100% 60%;
 }
 
 .dark {
@@ -101,6 +105,12 @@ body {
   background-size: 8px 8px;
 }
 
+/* Tighter dotted variant for hero atmospheric backgrounds */
+.dotted-fine {
+  background-image: radial-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 /* Caret blink */
 .caret::after {
   content: "_";
@@ -118,3 +128,97 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 0; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted)); }
+
+/* ===========================================================
+   Landing page: beams, grain, scroll-revealed motion.
+   =========================================================== */
+
+/* Beam packets that slide along an SVG path. The packet is an SVG
+   `<path>` with stroke-dasharray; we shift the dashoffset to make
+   the dash slide. */
+.beam-flow {
+  stroke-dasharray: 4 18;
+  animation: beam-flow 2.5s linear infinite;
+}
+.beam-flow-slow {
+  stroke-dasharray: 4 22;
+  animation: beam-flow 4s linear infinite;
+}
+@keyframes beam-flow {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -100; }
+}
+
+/* SVG glow filter helper for the ember accent. */
+.ember-stroke {
+  stroke: hsl(var(--ember));
+  filter: drop-shadow(0 0 4px hsl(var(--ember-glow) / 0.55))
+          drop-shadow(0 0 1px hsl(var(--ember-glow)));
+}
+
+/* Soft node pulse — used for "live" service nodes in the hero graph. */
+.pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+  transform-origin: center;
+}
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.08); }
+}
+
+/* Page-grain — extremely subtle SVG noise. Inline data URI so we
+   don't need an asset. Layered over the cream bg for atmosphere. */
+.grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.6 0'/></filter><rect width='200' height='200' filter='url(%23n)'/></svg>");
+  background-size: 200px 200px;
+}
+
+/* Scroll-revealed entrance. Paired with IntersectionObserver in the
+   page; once the .reveal-on element gets .reveal-in, fade-up plays. */
+.reveal-on {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.7s cubic-bezier(0.2, 0.8, 0.2, 1),
+              transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.reveal-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Marquee — endless horizontal track. Width is doubled in markup so
+   the translate -50% loops seamlessly. */
+.marquee {
+  animation: marquee-x 60s linear infinite;
+}
+@keyframes marquee-x {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Editorial display — tighten Instrument Serif a touch when used at
+   large sizes; the default tracking reads loose against mono. */
+.display-serif {
+  font-family: var(--font-serif);
+  letter-spacing: -0.02em;
+  font-feature-settings: "kern", "liga";
+}
+.display-serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+/* Numeric counter style — large display numerals with mono digits. */
+.numeral {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
