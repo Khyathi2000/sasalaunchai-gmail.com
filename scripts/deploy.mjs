@@ -11,13 +11,9 @@
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import readline from "node:readline";
+import { COLOR as C, flagReader } from "./_cli.mjs";
 
-const args = process.argv.slice(2);
-const has = (f) => args.includes(f);
-const val = (f, d) => {
-  const i = args.indexOf(f);
-  return i >= 0 && args[i + 1] ? args[i + 1] : d;
-};
+const { has } = flagReader(process.argv.slice(2));
 
 const CONFIG = process.env.CONFIG || (has("--cheap") ? "cloudbuild.cheap.yaml" : "cloudbuild.yaml");
 const SERVICE = process.env.SERVICE || "sasa-web";
@@ -25,11 +21,6 @@ const REGION = process.env.REGION || "us-central1";
 const PROJECT_ID = process.env.PROJECT_ID; // optional; gcloud uses default if unset
 const skipChecks = has("--skip-checks");
 const noStream = has("--no-stream");
-
-const C = {
-  reset: "\x1b[0m", bold: "\x1b[1m", dim: "\x1b[2m",
-  red: "\x1b[31m", green: "\x1b[32m", yellow: "\x1b[33m", cyan: "\x1b[36m",
-};
 
 function die(msg) { console.error(`${C.red}✗${C.reset} ${msg}`); process.exit(1); }
 function info(msg) { console.log(`${C.cyan}→${C.reset} ${msg}`); }
@@ -48,8 +39,20 @@ async function ask(q) {
 
 if (!fs.existsSync(CONFIG)) die(`config not found: ${CONFIG}`);
 
+// Run typecheck and the previous-revision lookup in parallel — both are pre-flight
+// reads that don't depend on each other. Saves ~5–10s before the 3min build kicks off.
+function runAsync(cmd, args, opts = {}) {
+  return new Promise((resolve) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"], ...opts });
+    let stdout = "", stderr = "";
+    child.stdout?.on("data", (d) => (stdout += d));
+    child.stderr?.on("data", (d) => (stderr += d));
+    child.on("close", (status) => resolve({ status, stdout, stderr }));
+  });
+}
+
 if (!skipChecks) {
-  // Dirty tree?
+  // Dirty tree check is fast and synchronous — gates the rest.
   const status = sh("git", ["status", "--porcelain"]);
   if (status.status === 0 && status.stdout.trim()) {
     console.log(`${C.yellow}⚠${C.reset}  uncommitted changes detected:`);
@@ -57,28 +60,27 @@ if (!skipChecks) {
     const a = await ask(`${C.yellow}deploy anyway? [y/N] ${C.reset}`);
     if (!/^y(es)?$/i.test(a)) die("aborted");
   }
-
-  // Typecheck
   info("running typecheck...");
-  const tc = sh("npm", ["run", "typecheck"], { stdio: ["ignore", "pipe", "pipe"] });
-  if (tc.status !== 0) {
-    console.error(tc.stdout);
-    console.error(tc.stderr);
-    die("typecheck failed — fix errors or pass --skip-checks");
-  }
-  ok("typecheck passed");
 }
 
-// Capture previous revision for diff
-let prevRev = "";
-{
-  const a = ["run", "revisions", "list",
-    `--service=${SERVICE}`, `--region=${REGION}`,
-    "--limit=1", "--format=value(metadata.name)"];
-  if (PROJECT_ID) a.push(`--project=${PROJECT_ID}`);
-  const r = sh("gcloud", a);
-  if (r.status === 0) prevRev = r.stdout.trim();
+const prevRevArgs = ["run", "revisions", "list",
+  `--service=${SERVICE}`, `--region=${REGION}`,
+  "--limit=1", "--format=value(metadata.name)"];
+if (PROJECT_ID) prevRevArgs.push(`--project=${PROJECT_ID}`);
+
+const [tcResult, prevRevResult] = await Promise.all([
+  skipChecks ? Promise.resolve(null) : runAsync("npm", ["run", "typecheck"]),
+  runAsync("gcloud", prevRevArgs),
+]);
+
+if (tcResult && tcResult.status !== 0) {
+  console.error(tcResult.stdout);
+  console.error(tcResult.stderr);
+  die("typecheck failed — fix errors or pass --skip-checks");
 }
+if (tcResult) ok("typecheck passed");
+
+const prevRev = prevRevResult.status === 0 ? prevRevResult.stdout.trim() : "";
 
 // ---- build ----
 

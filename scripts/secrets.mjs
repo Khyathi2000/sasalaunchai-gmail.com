@@ -14,6 +14,14 @@ import path from "node:path";
 import os from "node:os";
 import { MANAGED } from "./secrets.config.mjs";
 
+// gRPC status codes we branch on (https://grpc.github.io/grpc/core/md_doc_statuscodes.html).
+const GRPC = {
+  NOT_FOUND: 5,
+  ALREADY_EXISTS: 6,
+  PERMISSION_DENIED: 7,
+  UNAUTHENTICATED: 16,
+};
+
 const PROJECT_ID = process.env.PROJECT_ID;
 const RUNTIME_SA = process.env.RUNTIME_SA || "sasa-runtime";
 
@@ -57,41 +65,41 @@ function parseEnvFile(file) {
   return out;
 }
 
-async function secretExists(name) {
-  try {
-    await client.getSecret({ name: `${parent}/secrets/${name}` });
-    return true;
-  } catch (e) {
-    if (e.code === 5) return false; // NOT_FOUND
-    throw e;
-  }
-}
-
 async function upsert(name, value) {
-  const exists = await secretExists(name);
-  if (!exists) {
+  // Try-create-catch-ALREADY_EXISTS — one round-trip vs. the get-then-create
+  // TOCTOU pattern. AlreadyExists is the explicit "secret already there" signal.
+  let created = false;
+  try {
     await client.createSecret({
       parent,
       secretId: name,
       secret: { replication: { automatic: {} } },
     });
+    created = true;
+  } catch (e) {
+    if (e.code !== GRPC.ALREADY_EXISTS) throw e;
   }
-  await client.addSecretVersion({
-    parent: `${parent}/secrets/${name}`,
-    payload: { data: Buffer.from(value, "utf8") },
-  });
-  // Grant runtime SA access (idempotent).
+
   const resource = `${parent}/secrets/${name}`;
-  const [policy] = await client.getIamPolicy({ resource });
   const role = "roles/secretmanager.secretAccessor";
-  const binding = policy.bindings?.find((b) => b.role === role);
-  if (binding) {
-    if (!binding.members.includes(runtimeMember)) binding.members.push(runtimeMember);
-  } else {
-    policy.bindings = [...(policy.bindings || []), { role, members: [runtimeMember] }];
-  }
-  await client.setIamPolicy({ resource, policy });
-  return exists ? "updated" : "created";
+
+  // Add the version and reconcile IAM in parallel — independent ops on the same secret.
+  await Promise.all([
+    client.addSecretVersion({ parent: resource, payload: { data: Buffer.from(value, "utf8") } }),
+    (async () => {
+      const [policy] = await client.getIamPolicy({ resource });
+      const binding = policy.bindings?.find((b) => b.role === role);
+      if (binding) {
+        if (!binding.members.includes(runtimeMember)) binding.members.push(runtimeMember);
+        else return; // already bound — skip the no-op setIamPolicy
+      } else {
+        policy.bindings = [...(policy.bindings || []), { role, members: [runtimeMember] }];
+      }
+      await client.setIamPolicy({ resource, policy });
+    })(),
+  ]);
+
+  return created ? "created" : "updated";
 }
 
 async function push() {
@@ -101,14 +109,18 @@ async function push() {
     process.exit(1);
   }
   const env = parseEnvFile(file);
-  for (const name of MANAGED) {
-    const val = env[name];
-    if (val === undefined || val === "") {
-      console.log(`  -  ${name} (skipped, not in ${file})`);
-      continue;
-    }
-    const status = await upsert(name, val);
-    console.log(`  +  ${name} (${status})`);
+  const results = await Promise.all(
+    MANAGED.map(async (name) => {
+      const val = env[name];
+      if (val === undefined || val === "") return { name, status: "skipped" };
+      const status = await upsert(name, val);
+      return { name, status };
+    }),
+  );
+  for (const { name, status } of results) {
+    const sign = status === "skipped" ? "-" : "+";
+    const note = status === "skipped" ? `skipped, not in ${file}` : status;
+    console.log(`  ${sign}  ${name} (${note})`);
   }
   console.log("done.");
 }
@@ -132,19 +144,30 @@ async function pull() {
     `# Source: GCP Secret Manager, project=${PROJECT_ID}`,
     "",
   ];
+  // Fetch all secrets in parallel — each is an independent network round-trip.
+  const fetched = await Promise.all(
+    MANAGED.map(async (name) => {
+      try {
+        const [resp] = await client.accessSecretVersion({
+          name: `${parent}/secrets/${name}/versions/latest`,
+        });
+        return { name, value: resp.payload?.data?.toString("utf8") ?? "", ok: true };
+      } catch (e) {
+        if (e.code === GRPC.NOT_FOUND || e.code === GRPC.PERMISSION_DENIED) {
+          return { name, ok: false };
+        }
+        throw e;
+      }
+    }),
+  );
   const written = [];
   const skipped = [];
-  for (const name of MANAGED) {
-    try {
-      const [resp] = await client.accessSecretVersion({
-        name: `${parent}/secrets/${name}/versions/latest`,
-      });
-      const value = resp.payload?.data?.toString("utf8") ?? "";
-      lines.push(`${name}=${value}`);
-      written.push(name);
-    } catch (e) {
-      if (e.code === 5 || e.code === 7) skipped.push(name);
-      else throw e;
+  for (const r of fetched) {
+    if (r.ok) {
+      lines.push(`${r.name}=${r.value}`);
+      written.push(r.name);
+    } else {
+      skipped.push(r.name);
     }
   }
 
@@ -175,7 +198,7 @@ async function list() {
 }
 
 main().catch((e) => {
-  if (e.code === 16 || /could not load the default credentials/i.test(e.message || "")) {
+  if (e.code === GRPC.UNAUTHENTICATED || /could not load the default credentials/i.test(e.message || "")) {
     console.error("error: no GCP credentials. Run: gcloud auth application-default login");
     process.exit(1);
   }

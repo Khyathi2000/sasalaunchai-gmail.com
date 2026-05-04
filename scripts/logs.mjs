@@ -10,13 +10,9 @@
 //   SERVICE=other-svc npm run logs
 
 import { spawn } from "node:child_process";
+import { COLOR, flagReader } from "./_cli.mjs";
 
-const args = process.argv.slice(2);
-const has = (f) => args.includes(f);
-const val = (f, d) => {
-  const i = args.indexOf(f);
-  return i >= 0 && args[i + 1] ? args[i + 1] : d;
-};
+const { has, val } = flagReader(process.argv.slice(2));
 
 const SERVICE = process.env.SERVICE || "sasa-web";
 const PROJECT_ID = process.env.PROJECT_ID; // optional; gcloud uses default if unset
@@ -33,14 +29,6 @@ function durationToSeconds(s) {
   return n * { s: 1, m: 60, h: 3600, d: 86400 }[m[2]];
 }
 
-const COLOR = {
-  reset: "\x1b[0m",
-  dim: "\x1b[2m",
-  red: "\x1b[31m",
-  yellow: "\x1b[33m",
-  cyan: "\x1b[36m",
-  gray: "\x1b[90m",
-};
 const sevColor = (sev) => {
   if (sev === "ERROR" || sev === "CRITICAL" || sev === "ALERT" || sev === "EMERGENCY") return COLOR.red;
   if (sev === "WARNING") return COLOR.yellow;
@@ -48,14 +36,14 @@ const sevColor = (sev) => {
   return COLOR.gray;
 };
 
-function buildFilter({ freshnessSeconds, afterTimestamp }) {
+function buildFilter({ freshnessSeconds, afterTimestampInclusive }) {
   const parts = [
     `resource.type=cloud_run_revision`,
     `resource.labels.service_name=${SERVICE}`,
   ];
   if (errorsOnly) parts.push(`severity>=ERROR`);
-  if (afterTimestamp) {
-    parts.push(`timestamp>"${afterTimestamp}"`);
+  if (afterTimestampInclusive) {
+    parts.push(`timestamp>="${afterTimestampInclusive}"`);
   } else if (freshnessSeconds) {
     const since = new Date(Date.now() - freshnessSeconds * 1000).toISOString();
     parts.push(`timestamp>="${since}"`);
@@ -125,23 +113,36 @@ async function main() {
 
   if (!follow) return;
 
-  // Poll loop
+  // Poll loop. We dedupe by entry.insertId to avoid replays — gcloud's timestamp
+  // filter alone can't tell us "next entry after the last one we saw" precisely
+  // (timestamps repeat at sub-µs granularity, and an empty poll would otherwise
+  // freeze lastTs and cause silently dropped entries on the next batch).
   let lastTs = initial.length ? initial[initial.length - 1].timestamp
                               : new Date(Date.now() - 5000).toISOString();
+  const seen = new Set(initial.map((e) => e.insertId).filter(Boolean));
   console.log(`${COLOR.dim}— following (Ctrl-C to stop) —${COLOR.reset}`);
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     await new Promise((r) => setTimeout(r, 2000));
     let entries;
     try {
-      entries = await fetchOnce({ afterTimestamp: lastTs, limit: 500 });
+      // Inclusive comparison + insertId dedupe — guarantees we never miss
+      // entries that share a timestamp with the previous batch's tail.
+      entries = await fetchOnce({ afterTimestampInclusive: lastTs, limit: 500 });
     } catch (e) {
       console.error(`${COLOR.red}poll error:${COLOR.reset} ${e.message}`);
       continue;
     }
     for (const e of entries) {
+      if (e.insertId && seen.has(e.insertId)) continue;
       printEntry(e);
+      if (e.insertId) seen.add(e.insertId);
       lastTs = e.timestamp;
+    }
+    // Cap dedup memory — only need to remember the most recent window.
+    if (seen.size > 5000) {
+      const arr = [...seen].slice(-2500);
+      seen.clear();
+      for (const id of arr) seen.add(id);
     }
   }
 }
