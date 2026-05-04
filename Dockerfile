@@ -27,6 +27,17 @@ RUN npm install --no-audit --no-fund
 ############################
 FROM deps AS build
 WORKDIR /app
+
+# Clerk's NEXT_PUBLIC_* vars are inlined into the client bundle by `next build`,
+# so they must be present here. cloudbuild.yaml maps Secret Manager values
+# into these args via `availableSecrets` + `--build-arg`.
+ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+ARG NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+ARG NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY \
+    NEXT_PUBLIC_CLERK_SIGN_IN_URL=$NEXT_PUBLIC_CLERK_SIGN_IN_URL \
+    NEXT_PUBLIC_CLERK_SIGN_UP_URL=$NEXT_PUBLIC_CLERK_SIGN_UP_URL
+
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
