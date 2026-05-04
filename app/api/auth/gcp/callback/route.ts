@@ -95,14 +95,14 @@ export async function GET(req: Request) {
 
   // Bounce the user back to /app — if they came from the deploy flow,
   // ServiceGrid's deploy click can re-run the precheck and proceed.
-  const target = new URL("/app", req.url);
+  const target = new URL("/console", req.url);
   if (decodedState.sid) target.searchParams.set("sid", decodedState.sid);
   target.searchParams.set("authorized", "gcp");
   return NextResponse.redirect(target);
 }
 
 function errorRedirect(req: Request, code: string, message: string): Response {
-  const target = new URL("/app", req.url);
+  const target = new URL("/console", req.url);
   target.searchParams.set("authorize_error", code);
   target.searchParams.set("authorize_message", message);
   return NextResponse.redirect(target);
