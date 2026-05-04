@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { BracketCheckbox } from "./BracketCheckbox";
 import { BracketButton } from "./BracketButton";
 import { ProviderPicker } from "./ProviderPicker";
+import { DeployAuthModal } from "./DeployAuthModal";
 import { useStore, selectedServiceIds } from "@/lib/store";
 import type { ServiceRecommendation } from "@/lib/core";
 
@@ -38,6 +39,11 @@ export function ServiceGrid() {
   const [loadingInfer, setLoadingInfer] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [authModal, setAuthModal] = useState<{
+    provider: "aws" | "gcp";
+    reason?: "no_credential" | "invalid_credential";
+    message?: string;
+  } | null>(null);
 
   useEffect(() => {
     if (phase !== "selecting" || !sid || recommendations.length > 0) return;
@@ -70,6 +76,7 @@ export function ServiceGrid() {
     setLoadingPlan(true);
     setError(null);
     try {
+      // 1. Build / save the deployment plan.
       const planRes = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,12 +91,47 @@ export function ServiceGrid() {
       const planData = (await planRes.json()) as { planId?: string; error?: string };
       if (planData.error) throw new Error(planData.error);
       if (planData.planId) setPlanId(planData.planId);
+
+      // 2. Pre-deploy: do we have working creds for the target provider?
+      //    If not, pop the inline auth modal — the user pastes creds, we
+      //    save them to the vault, then we resume the deploy.
+      const ok = await ensureCloudAuthorized();
+      if (!ok) return; // modal opened; continueAfterAuth() will resume.
+
+      // 3. All set — flip the phase and let DeployTimeline drive the SSE.
       setPhase("deploying");
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingPlan(false);
     }
+  };
+
+  /** Returns true if the user is already authorized; otherwise opens the
+   * modal and returns false. */
+  const ensureCloudAuthorized = async (): Promise<boolean> => {
+    if (!sid) return false;
+    const res = await fetch("/api/deploy/precheck", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sid }),
+    });
+    const data = (await res.json()) as {
+      ready: boolean;
+      provider: "aws" | "gcp";
+      reason?: "no_credential" | "invalid_credential";
+      message?: string;
+      error?: string;
+    };
+    if (data.error) throw new Error(data.error);
+    if (data.ready) return true;
+    setAuthModal({ provider: data.provider, reason: data.reason, message: data.message });
+    return false;
+  };
+
+  const continueAfterAuth = () => {
+    setAuthModal(null);
+    setPhase("deploying");
   };
 
   return (
@@ -148,6 +190,16 @@ export function ServiceGrid() {
           {error && <p className="mt-3 text-xs text-err">[error] {error}</p>}
         </div>
       </div>
+
+      {authModal && (
+        <DeployAuthModal
+          provider={authModal.provider}
+          reason={authModal.reason}
+          message={authModal.message}
+          onSaved={continueAfterAuth}
+          onCancel={() => setAuthModal(null)}
+        />
+      )}
     </section>
   );
 }
