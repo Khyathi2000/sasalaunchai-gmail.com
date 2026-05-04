@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BracketButton } from "./BracketButton";
 
 interface Props {
   provider: "aws" | "gcp";
+  sid?: string;
   onSaved: () => void;
   onCancel: () => void;
   reason?: "no_credential" | "invalid_credential";
@@ -14,11 +15,16 @@ interface Props {
 /**
  * Inline credential prompt that pops up when the user clicks "deploy"
  * but doesn't have working cloud credentials for the target provider.
- * Single-provider, scoped to the plan being deployed.
+ *
+ * Two paths to capture creds:
+ *  - Click-to-authorize: Google OAuth (GCP) or "open IAM console" (AWS)
+ *  - Manual paste: access keys / service-account JSON, behind a toggle
  */
-export function DeployAuthModal({ provider, onSaved, onCancel, reason, message }: Props) {
+export function DeployAuthModal({ provider, sid, onSaved, onCancel, reason, message }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
+  const [oauthConfigured, setOauthConfigured] = useState<boolean | null>(null);
 
   // AWS form
   const [accessKeyId, setAccessKeyId] = useState("");
@@ -29,6 +35,30 @@ export function DeployAuthModal({ provider, onSaved, onCancel, reason, message }
   // GCP form
   const [saJson, setSaJson] = useState("");
   const [projectId, setProjectId] = useState("");
+
+  // Probe whether GCP OAuth is configured server-side. The "Authorize via
+  // Google" button stays disabled with a setup hint when it isn't.
+  useEffect(() => {
+    if (provider !== "gcp") return;
+    fetch("/api/auth/gcp/status")
+      .then((r) => r.json())
+      .then((d: { configured: boolean }) => setOauthConfigured(d.configured))
+      .catch(() => setOauthConfigured(false));
+  }, [provider]);
+
+  const startGoogleAuth = () => {
+    const url = sid ? `/api/auth/gcp/start?sid=${encodeURIComponent(sid)}` : "/api/auth/gcp/start";
+    // Top-level navigation — Google's consent screen blocks framing.
+    window.location.href = url;
+  };
+
+  const openAwsConsole = () => {
+    window.open(
+      "https://us-east-1.console.aws.amazon.com/iam/home#/security_credentials",
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
 
   const submit = async () => {
     setSubmitting(true);
@@ -99,52 +129,104 @@ export function DeployAuthModal({ provider, onSaved, onCancel, reason, message }
           </h2>
           <p className="mt-2 text-xs text-muted-foreground">
             {reason === "invalid_credential"
-              ? `Your saved ${provider.toUpperCase()} credentials didn't pass the identity probe (${message ?? "STS call failed"}). Paste fresh ones below — they replace the old set.`
-              : `Before deploying we need ${provider.toUpperCase()} credentials. They're envelope-encrypted (AES-256-GCM, KMS-wrapped) and stored against your account.`}
+              ? `Your saved ${provider.toUpperCase()} credentials didn't pass the identity probe (${message ?? "probe failed"}). Re-authorize below.`
+              : `Before deploying we need ${provider.toUpperCase()} access. Authorize once — credentials are envelope-encrypted (AES-256-GCM, KMS-wrapped) and stored against your account.`}
           </p>
         </header>
 
-        {provider === "aws" ? (
-          <div className="space-y-3 text-xs">
-            <Field label="access key id" value={accessKeyId} onChange={setAccessKeyId} placeholder="AKIA..." autoFocus />
-            <Field
-              label="secret access key"
-              value={secretAccessKey}
-              onChange={setSecretAccessKey}
-              type="password"
-              placeholder="40-char secret"
-            />
-            <Field
-              label="session token (sso/temporary)"
-              value={sessionToken}
-              onChange={setSessionToken}
-              type="password"
-              placeholder="optional"
-            />
-            <Field label="region" value={region} onChange={setRegion} placeholder="us-east-1" />
+        {/* Click-to-authorize: primary path */}
+        {provider === "gcp" ? (
+          <div className="space-y-3">
+            <button
+              onClick={startGoogleAuth}
+              disabled={!oauthConfigured}
+              className="w-full border border-ink bg-ink px-4 py-3 text-xs uppercase tracking-wider text-cream hover:bg-ink/85 disabled:cursor-not-allowed disabled:bg-muted/30 disabled:text-muted-foreground"
+            >
+              [ authorize via google ] →
+            </button>
+            <p className="text-[0.65rem] text-muted-foreground">
+              {oauthConfigured === false
+                ? "Set GCP_OAUTH_CLIENT_ID + GCP_OAUTH_CLIENT_SECRET + GCP_OAUTH_REDIRECT_URI in env to enable. See lib/auth/gcp-oauth.ts for setup."
+                : oauthConfigured === null
+                  ? "Checking server config..."
+                  : "Opens Google's consent screen. Pick the project + billing account, grant cloud-platform scope. We capture a refresh token, never a long-lived secret."}
+            </p>
           </div>
         ) : (
-          <div className="space-y-3 text-xs">
-            <p className="text-muted-foreground">
-              paste the full service account JSON. needs roles for the resources you'll deploy
-              (compute admin, sql admin, storage admin, etc.).
+          <div className="space-y-3">
+            <button
+              onClick={openAwsConsole}
+              className="w-full border border-ink bg-ink px-4 py-3 text-xs uppercase tracking-wider text-cream hover:bg-ink/85"
+            >
+              [ open aws iam console ] →
+            </button>
+            <p className="text-[0.65rem] text-muted-foreground">
+              Opens the IAM credentials page in a new tab. Create an access key (or use AWS SSO
+              session creds), then paste the values below. We probe with STS:GetCallerIdentity to
+              confirm before saving.
             </p>
-            <textarea
-              value={saJson}
-              onChange={(e) => setSaJson(e.target.value)}
-              placeholder='{ "type": "service_account", "project_id": "...", ... }'
-              rows={8}
-              autoFocus
-              className="w-full border border-border bg-cream px-2 py-1 font-mono text-[0.65rem] focus:border-ink focus:outline-none"
-            />
-            <Field
-              label="project id (override)"
-              value={projectId}
-              onChange={setProjectId}
-              placeholder="auto-detected from json"
-            />
           </div>
         )}
+
+        {/* Manual paste — collapsed by default for GCP if OAuth is on,
+            always visible for AWS. */}
+        <div className="mt-5 border-t border-border pt-4">
+          {provider === "gcp" && oauthConfigured && !showManual ? (
+            <button
+              onClick={() => setShowManual(true)}
+              className="text-[0.65rem] uppercase tracking-wider text-muted-foreground hover:text-ink"
+            >
+              [ paste service-account json instead ]
+            </button>
+          ) : (
+            <>
+              <h3 className="mb-3 text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                {provider === "aws" ? "[ paste access keys ]" : "[ paste service-account json ]"}
+              </h3>
+              {provider === "aws" ? (
+                <div className="space-y-3 text-xs">
+                  <Field
+                    label="access key id"
+                    value={accessKeyId}
+                    onChange={setAccessKeyId}
+                    placeholder="AKIA..."
+                  />
+                  <Field
+                    label="secret access key"
+                    value={secretAccessKey}
+                    onChange={setSecretAccessKey}
+                    type="password"
+                    placeholder="40-char secret"
+                  />
+                  <Field
+                    label="session token (sso / temporary)"
+                    value={sessionToken}
+                    onChange={setSessionToken}
+                    type="password"
+                    placeholder="optional"
+                  />
+                  <Field label="region" value={region} onChange={setRegion} placeholder="us-east-1" />
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs">
+                  <textarea
+                    value={saJson}
+                    onChange={(e) => setSaJson(e.target.value)}
+                    placeholder='{ "type": "service_account", "project_id": "...", ... }'
+                    rows={6}
+                    className="w-full border border-border bg-cream px-2 py-1 font-mono text-[0.65rem] focus:border-ink focus:outline-none"
+                  />
+                  <Field
+                    label="project id (override)"
+                    value={projectId}
+                    onChange={setProjectId}
+                    placeholder="auto-detected from json"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </div>
 
         {error && (
           <p className="mt-3 border border-err px-3 py-2 text-[0.65rem] text-err">
@@ -160,9 +242,11 @@ export function DeployAuthModal({ provider, onSaved, onCancel, reason, message }
           >
             cancel
           </button>
-          <BracketButton variant="primary" onClick={submit} loading={submitting}>
-            authorize & deploy →
-          </BracketButton>
+          {(provider === "aws" || showManual) && (
+            <BracketButton variant="primary" onClick={submit} loading={submitting}>
+              save & deploy →
+            </BracketButton>
+          )}
         </footer>
       </div>
     </div>
@@ -175,14 +259,12 @@ function Field({
   onChange,
   type = "text",
   placeholder,
-  autoFocus,
 }: {
   label: string;
   value: string;
   onChange: (s: string) => void;
   type?: string;
   placeholder?: string;
-  autoFocus?: boolean;
 }) {
   return (
     <label className="block">
@@ -196,7 +278,6 @@ function Field({
         placeholder={placeholder}
         autoComplete="off"
         spellCheck={false}
-        autoFocus={autoFocus}
         className="w-full border border-border bg-cream px-2 py-1 font-mono text-xs focus:border-ink focus:outline-none"
       />
     </label>

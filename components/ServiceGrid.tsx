@@ -194,6 +194,7 @@ export function ServiceGrid() {
       {authModal && (
         <DeployAuthModal
           provider={authModal.provider}
+          sid={sid ?? undefined}
           reason={authModal.reason}
           message={authModal.message}
           onSaved={continueAfterAuth}
