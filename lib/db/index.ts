@@ -25,7 +25,17 @@ export function db(): DB {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. Set it to a Postgres URL (e.g. postgres://user:pass@host:5432/db).",
+      [
+        "DATABASE_URL is not set.",
+        "",
+        "Local dev — fastest path:",
+        "  docker compose up -d         # starts Postgres on :5432",
+        "  cp .env.local.example .env.local",
+        "  npm run db:migrate           # applies the Drizzle schema",
+        "  npm run dev",
+        "",
+        "Production: set DATABASE_URL to your Cloud SQL connection string. See STATUS.md.",
+      ].join("\n"),
     );
   }
   const client = postgres(url, {

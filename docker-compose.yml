@@ -1,0 +1,32 @@
+# Local dev Postgres for the Drizzle layer.
+#
+#   docker compose up -d        # start
+#   docker compose down         # stop (keeps data)
+#   docker compose down -v      # stop + wipe data
+#
+# Then in .env.local:
+#   DATABASE_URL=postgres://launch:launch@localhost:5432/launch
+# and run:
+#   npm run db:migrate
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: launch-pg
+    environment:
+      POSTGRES_USER: launch
+      POSTGRES_PASSWORD: launch
+      POSTGRES_DB: launch
+    ports:
+      - "5432:5432"
+    volumes:
+      - launch-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U launch -d launch"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  launch-pg-data:
