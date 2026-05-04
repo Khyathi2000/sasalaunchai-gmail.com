@@ -70,6 +70,15 @@ NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+If the project's secrets already live in GCP Secret Manager, populate `.env.local` instead of copy-pasting (works on Mac/Linux/Windows):
+
+```
+gcloud auth application-default login        # one-time
+PROJECT_ID=<your-project-id> npm run secrets:pull
+```
+
+Other commands: `npm run secrets:push` (upload from `.env`), `npm run secrets:list` (show what's in the project).
+
 **Run:**
 ```
 npm install

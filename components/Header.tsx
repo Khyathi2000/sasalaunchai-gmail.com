@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { UserButton } from "@clerk/nextjs";
+import { UserButton, useUser } from "@clerk/nextjs";
 import { useStore } from "@/lib/store";
 
 interface CredentialStatus {
@@ -23,14 +23,19 @@ function KeyIcon() {
 
 export function Header() {
   const sid = useStore((s) => s.sid);
+  const { isSignedIn, isLoaded } = useUser();
   const [creds, setCreds] = useState<CredentialStatus | null>(null);
 
+  // /api/credentials is auth-gated by middleware. Skip the fetch (and the
+  // guaranteed 401) until Clerk confirms a session — otherwise an unauth
+  // render would crash on `creds.aws.ok` after parsing the 401 body.
   useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
     fetch("/api/credentials")
-      .then((r) => r.json())
+      .then((r) => (r.ok ? r.json() : null))
       .then(setCreds)
       .catch(() => setCreds(null));
-  }, []);
+  }, [isLoaded, isSignedIn]);
 
   return (
     <header className="border-b border-border">
@@ -41,7 +46,7 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-4 text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-          {creds && (
+          {creds?.aws && creds?.gcp && (
             <Link
               href="/settings/credentials"
               title="manage credentials"
