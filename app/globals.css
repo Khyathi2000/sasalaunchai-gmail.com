@@ -166,26 +166,6 @@ body {
   50%      { opacity: 1;   transform: scale(1.08); }
 }
 
-/* Scan-line for the hero — slow vertical sweep to suggest the
-   monitoring loop. Subtle. */
-.scan-line {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg,
-    transparent 0%,
-    transparent 49%,
-    hsl(var(--fg) / 0.04) 50%,
-    transparent 51%,
-    transparent 100%);
-  background-size: 100% 220%;
-  animation: scan-down 6s linear infinite;
-}
-@keyframes scan-down {
-  0%   { background-position: 0 -100%; }
-  100% { background-position: 0  100%; }
-}
-
 /* Page-grain — extremely subtle SVG noise. Inline data URI so we
    don't need an asset. Layered over the cream bg for atmosphere. */
 .grain {

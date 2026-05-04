@@ -21,9 +21,8 @@ export default function Landing() {
       <main className="relative flex-1">
         {/* ==================== HERO ==================== */}
         <section className="relative overflow-hidden">
-          {/* Atmospheric backdrop — fine dotted grid + slow scan line */}
+          {/* Atmospheric backdrop — fine dotted grid */}
           <div className="absolute inset-0 dotted-fine opacity-60" aria-hidden />
-          <div className="scan-line" aria-hidden />
 
           <div className="relative mx-auto w-full max-w-screen-2xl px-8 pb-24 pt-24 xl:px-16 xl:pb-32 xl:pt-32">
             <div className="grid gap-12 xl:grid-cols-[1.05fr_1fr] xl:gap-20">
