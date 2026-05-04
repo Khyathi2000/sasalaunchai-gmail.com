@@ -2,7 +2,7 @@ import { runParserAgent, runAnalyzerAgent, RepoNotAccessibleError } from "@/lib/
 import { sseResponse } from "@/lib/sse-server";
 import { newSessionId, updateSession } from "@/lib/sessions";
 import { ensureUser } from "@/lib/auth/user";
-import { getCurrentUserGithubToken, GithubNotConnectedError } from "@/lib/auth/github-token";
+import { getCurrentUserGithubToken } from "@/lib/auth/github-token";
 import {
   AnalysisServiceUnavailableError,
   adaptToLegacyAnalysisResult,
@@ -31,33 +31,38 @@ export async function POST(req: Request) {
       ? "sidecar"
       : "legacy");
 
-  let githubToken: string;
-  try {
-    githubToken = await getCurrentUserGithubToken();
-  } catch (err) {
-    if (err instanceof GithubNotConnectedError) {
-      return new Response(JSON.stringify({ error: "github_not_connected", message: err.message }), {
-        status: 401,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    throw err;
-  }
+  // Token is optional — public GitHub repos (and local paths) work without
+  // it. We only surface a "connect GitHub" error if the parser fails on
+  // what looks like a private repo AND we have no token to retry with.
+  const githubToken = await getCurrentUserGithubToken();
 
   return sseResponse(async (ctrl) => {
     ctrl.send("session", { sid });
 
     let codebase;
     try {
-      codebase = await runParserAgent(source, githubToken, (message, fileCount) => {
+      codebase = await runParserAgent(source, githubToken ?? undefined, (message, fileCount) => {
         ctrl.send("parse-progress", { message, fileCount });
       });
     } catch (err) {
-      const code = err instanceof RepoNotAccessibleError ? "repo_not_accessible" : undefined;
+      // RepoNotAccessibleError + no token => probably a private repo and
+      // the user just needs to connect GitHub. Otherwise it's a real
+      // parse failure (404, network, etc.).
+      const isAccessError = err instanceof RepoNotAccessibleError;
+      const code = isAccessError
+        ? githubToken
+          ? "repo_not_accessible"
+          : "repo_not_accessible_no_token"
+        : undefined;
       ctrl.send("error", {
         stage: "parse",
         code,
-        message: err instanceof Error ? err.message : String(err),
+        message:
+          isAccessError && !githubToken
+            ? "Couldn't access this repo. If it's private, connect your GitHub account from settings → credentials, then retry. Public repos should work without GitHub auth — double-check the URL."
+            : err instanceof Error
+              ? err.message
+              : String(err),
       });
       return;
     }
