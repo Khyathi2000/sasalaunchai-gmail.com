@@ -8,8 +8,20 @@ interface CredentialStatus {
   gcp: { ok: boolean; projectId?: string; needsAuth: boolean; error?: string };
 }
 
+interface StoredCredential {
+  id: string;
+  provider: "aws" | "gcp";
+  label: string;
+  awsAccountId?: string;
+  awsRegion?: string;
+  gcpProjectId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export function CredentialsForm() {
   const [status, setStatus] = useState<CredentialStatus | null>(null);
+  const [stored, setStored] = useState<StoredCredential[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<number | null>(null);
@@ -24,9 +36,19 @@ export function CredentialsForm() {
   const [saJson, setSaJson] = useState("");
   const [projectId, setProjectId] = useState("");
 
-  const refresh = async () => {
+  const loadStored = async () => {
     try {
       const res = await fetch("/api/credentials");
+      const data = (await res.json()) as { stored: StoredCredential[] };
+      setStored(data.stored ?? []);
+    } catch {
+      setStored([]);
+    }
+  };
+
+  const probe = async () => {
+    try {
+      const res = await fetch("/api/credentials?probe=1");
       const data = (await res.json()) as CredentialStatus;
       setStatus(data);
     } catch {
@@ -35,7 +57,8 @@ export function CredentialsForm() {
   };
 
   useEffect(() => {
-    refresh();
+    loadStored();
+    probe();
   }, []);
 
   const submit = async () => {
@@ -74,12 +97,22 @@ export function CredentialsForm() {
         setSecretAccessKey("");
         setSaJson("");
         setSavedAt(Date.now());
+        await loadStored();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const remove = async (provider: "aws" | "gcp", label: string) => {
+    if (!confirm(`Delete the ${provider} credential "${label}"?`)) return;
+    await fetch(`/api/credentials?provider=${provider}&label=${encodeURIComponent(label)}`, {
+      method: "DELETE",
+    });
+    await loadStored();
+    await probe();
   };
 
   return (
@@ -98,6 +131,35 @@ export function CredentialsForm() {
           <span className="text-muted-foreground">probing...</span>
         )}
       </div>
+
+      {stored.length > 0 && (
+        <div className="border border-border p-4">
+          <h3 className="mb-3 text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+            [ stored credentials ]
+          </h3>
+          <ul className="space-y-2 text-xs">
+            {stored.map((s) => (
+              <li
+                key={s.id}
+                className="flex items-center justify-between gap-3 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+              >
+                <span className="font-mono">
+                  [{s.provider}] {s.label}
+                  {s.awsAccountId && ` · acct ${s.awsAccountId}`}
+                  {s.awsRegion && ` · ${s.awsRegion}`}
+                  {s.gcpProjectId && ` · proj ${s.gcpProjectId}`}
+                </span>
+                <button
+                  onClick={() => remove(s.provider, s.label)}
+                  className="text-[0.65rem] uppercase tracking-wider text-muted-foreground hover:text-err"
+                >
+                  delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="grid gap-6 text-xs xl:grid-cols-2">
         <div className="space-y-3 border border-border p-4">
@@ -127,8 +189,8 @@ export function CredentialsForm() {
 
       <div className="flex items-center justify-between gap-4">
         <p className="text-[0.65rem] text-muted-foreground">
-          creds live in this server process only. they're not written to session storage.
-          gcp json is staged at $TMPDIR/launch-platform-creds/gcp-sa.json with mode 0600.
+          credentials are envelope-encrypted (AES-256-GCM, KMS-wrapped DEK) and stored
+          per-user. plaintext only lives in process memory for the duration of one request.
         </p>
         <BracketButton variant="primary" onClick={submit} loading={submitting}>
           save & verify

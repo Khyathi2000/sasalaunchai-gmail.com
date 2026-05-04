@@ -1,6 +1,7 @@
 import { sseResponse } from "@/lib/sse-server";
 import { getOrchestrator } from "@/lib/bus-registry";
 import { readSession } from "@/lib/sessions";
+import { ensureUser } from "@/lib/auth/user";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,12 +11,13 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ serviceId: string }> },
 ) {
+  const userId = await ensureUser();
   const { serviceId } = await params;
   const body = (await req.json()) as {
     sid: string;
     action: "stop" | "start" | "destroy";
   };
-  const session = await readSession(body.sid);
+  const session = await readSession(body.sid, userId);
   if (!session?.planId) {
     return new Response(JSON.stringify({ error: "no planId" }), {
       status: 404,

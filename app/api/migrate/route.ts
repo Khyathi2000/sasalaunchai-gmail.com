@@ -5,6 +5,8 @@ import {
 } from "@/lib/core";
 import { sseResponse } from "@/lib/sse-server";
 import { readSession, updateSession, ensureSessionDir } from "@/lib/sessions";
+import { ensureUser } from "@/lib/auth/user";
+import { hydrateAllFromVault } from "@/lib/credential-store";
 import { getOrchestrator, registerMigration, registerOrchestrator } from "@/lib/bus-registry";
 import type { DeploymentPlan } from "@/lib/core";
 
@@ -13,6 +15,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 1800;
 
 export async function POST(req: Request) {
+  const userId = await ensureUser();
   const body = (await req.json()) as {
     sid: string;
     targetProvider: "aws" | "gcp";
@@ -20,13 +23,15 @@ export async function POST(req: Request) {
     decommissionSource?: boolean;
   };
 
-  const session = await readSession(body.sid);
+  const session = await readSession(body.sid, userId);
   if (!session?.codebase || !session.planId) {
     return new Response(JSON.stringify({ error: "no source deployment in session" }), {
       status: 404,
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  await hydrateAllFromVault(userId);
 
   const sourceOrch = getOrchestrator(session.planId);
   if (!sourceOrch) {
@@ -56,7 +61,7 @@ export async function POST(req: Request) {
 
   const targetPlanId = `${session.planId}-target-${body.targetProvider}`;
   registerOrchestrator(targetPlanId, migration.getTarget());
-  await updateSession(body.sid, (r) => ({
+  await updateSession(body.sid, userId, (r) => ({
     ...r,
     plan: targetPlan,
     planId: targetPlanId,
