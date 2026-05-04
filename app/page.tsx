@@ -43,7 +43,7 @@ export default function Landing() {
 
               <div className="mt-12 flex items-center gap-6">
                 <Link
-                  href="/app"
+                  href="/console"
                   className="inline-flex items-center gap-1 border border-ink bg-ink px-8 py-4 text-base uppercase tracking-wider text-cream transition-colors hover:bg-cream hover:text-ink"
                 >
                   <span aria-hidden>[</span>
@@ -179,7 +179,7 @@ export default function Landing() {
               Ship a codebase to the cloud. <span className="caret"></span>
             </h2>
             <Link
-              href="/app"
+              href="/console"
               className="inline-flex items-center gap-1 border border-ink bg-ink px-12 py-5 text-lg uppercase tracking-wider text-cream transition-colors hover:bg-cream hover:text-ink"
             >
               <span aria-hidden>[</span>

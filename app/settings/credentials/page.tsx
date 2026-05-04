@@ -14,7 +14,7 @@ export default function CredentialsSettingsPage() {
       <main className="flex-1">
         <section className="mx-auto w-full max-w-screen-2xl px-8 py-16 xl:px-16">
           <nav className="mb-8 text-[0.65rem] uppercase tracking-wider text-muted-foreground">
-            <Link href="/app" className="hover:text-foreground">[ app ]</Link>
+            <Link href="/console" className="hover:text-foreground">[ app ]</Link>
             <span className="mx-2">/</span>
             <span>settings</span>
             <span className="mx-2">/</span>

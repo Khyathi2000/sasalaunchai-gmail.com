@@ -16,7 +16,7 @@ export function LandingHeader() {
           <a href="#how" className="hover:text-foreground">how it works</a>
           <a href="#services" className="hover:text-foreground">services</a>
           <a href="https://github.com" className="hover:text-foreground" target="_blank" rel="noreferrer">github</a>
-          <Link href="/app" className="bracket-btn text-xs" data-variant="primary">
+          <Link href="/console" className="bracket-btn text-xs" data-variant="primary">
             <span aria-hidden>[</span>
             <span className="px-2">Get Started</span>
             <span aria-hidden>]</span>

@@ -15,8 +15,8 @@ export default function SignupPage() {
             routing="path"
             path="/signup"
             signInUrl="/login"
-            forceRedirectUrl="/app"
-            signInForceRedirectUrl="/app"
+            forceRedirectUrl="/console"
+            signInForceRedirectUrl="/console"
           />
         </div>
       </main>

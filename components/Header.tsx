@@ -40,7 +40,7 @@ export function Header() {
   return (
     <header className="border-b border-border">
       <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-4 px-6 py-4">
-        <Link href="/app" className="flex items-baseline gap-3 hover:opacity-70">
+        <Link href="/console" className="flex items-baseline gap-3 hover:opacity-70">
           <span className="text-base tracking-wider">[ LAUNCH ]</span>
           <span className="hidden text-xs text-muted-foreground sm:inline">multi-cloud deployment</span>
         </Link>
