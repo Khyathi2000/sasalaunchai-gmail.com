@@ -112,6 +112,29 @@ function AwsCfnFlow({ onSaved }: { onSaved: () => void }) {
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [templateBody, setTemplateBody] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copyTemplate = async () => {
+    if (!templateBody) return;
+    try {
+      await navigator.clipboard.writeText(templateBody);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for browsers blocking clipboard — select the textarea
+      const ta = document.querySelector<HTMLTextAreaElement>("[data-cfn-template]");
+      ta?.select();
+    }
+  };
+
+  const copyExternalId = async () => {
+    if (!launchInfo) return;
+    try {
+      await navigator.clipboard.writeText(launchInfo.externalId);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     fetch(`/api/auth/aws/launch-url?region=${region}`)
@@ -188,21 +211,61 @@ function AwsCfnFlow({ onSaved }: { onSaved: () => void }) {
           [ launch CloudFormation in AWS ] →
         </a>
       ) : (
-        <div className="space-y-2 border border-warn/40 bg-warn/[0.04] p-3">
+        <div className="space-y-3 border border-warn/40 bg-warn/[0.04] p-3">
           <p className="text-[0.65rem] uppercase tracking-wider text-warn">
-            [ localhost detected — manual paste needed ]
+            [ localhost detected — three-click flow ]
           </p>
-          <p className="text-muted-foreground">
-            CloudFormation can't reach localhost. Copy the template below, then go to AWS Console →
-            CloudFormation → Create stack → Upload template, paste it, set the External ID
-            parameter to <span className="font-mono">{launchInfo.externalId}</span>.
+
+          {/* Step 1: copy template */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+                step 1 · copy the template
+              </p>
+              <button
+                onClick={copyTemplate}
+                disabled={!templateBody}
+                className="border border-ink bg-ink px-2 py-0.5 text-[0.65rem] uppercase tracking-wider text-cream hover:bg-cream hover:text-ink disabled:opacity-50"
+              >
+                {copied ? "copied ✓" : "[ copy template ]"}
+              </button>
+            </div>
+            <textarea
+              readOnly
+              data-cfn-template
+              value={templateBody ?? "loading template..."}
+              rows={6}
+              className="w-full border border-border bg-cream px-2 py-1 font-mono text-[0.6rem]"
+            />
+          </div>
+
+          {/* Step 2: open AWS Console */}
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[0.65rem] uppercase tracking-wider text-muted-foreground">
+              step 2 · open AWS Console (Create Stack page)
+            </p>
+            <a
+              href={`https://${region}.console.aws.amazon.com/cloudformation/home?region=${region}#/stacks/create`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-ink bg-ink px-2 py-0.5 text-[0.65rem] uppercase tracking-wider text-cream hover:bg-cream hover:text-ink"
+            >
+              [ open create stack ↗ ]
+            </a>
+          </div>
+          <p className="text-[0.6rem] leading-relaxed text-muted-foreground">
+            In AWS: <em>Choose an existing template</em> → <em>Upload a template file</em>, paste,
+            click Next. Set <span className="font-mono">ExternalId</span> ={" "}
+            <button
+              onClick={copyExternalId}
+              className="font-mono underline decoration-dotted hover:decoration-solid"
+              title="click to copy"
+            >
+              {launchInfo.externalId}
+            </button>
+            . Then Next → Next → I acknowledge → Submit. Wait for CREATE_COMPLETE, then copy the{" "}
+            <span className="font-mono">RoleArn</span> from the Outputs tab and paste below.
           </p>
-          <textarea
-            readOnly
-            value={templateBody ?? "loading template..."}
-            rows={8}
-            className="w-full border border-border bg-cream px-2 py-1 font-mono text-[0.6rem]"
-          />
         </div>
       )}
 
