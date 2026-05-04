@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { ensureUser } from "@/lib/auth/user";
-import { getPlatformServiceAccountEmail } from "@/lib/auth/gcp-impersonation";
+import { getPlatformIdentity } from "@/lib/auth/gcp-impersonation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,9 +15,9 @@ export async function GET(req: Request) {
   const projectId = url.searchParams.get("projectId") ?? "<YOUR_PROJECT_ID>";
   const saName = url.searchParams.get("saName") ?? "sasa-launch-deployer";
 
-  let platformSa: string;
+  let platform;
   try {
-    platformSa = await getPlatformServiceAccountEmail();
+    platform = await getPlatformIdentity();
   } catch (err) {
     return NextResponse.json(
       {
@@ -31,7 +31,9 @@ export async function GET(req: Request) {
   const targetSa = `${saName}@${projectId}.iam.gserviceaccount.com`;
 
   return NextResponse.json({
-    platformServiceAccount: platformSa,
+    platformServiceAccount: platform.email,
+    platformIamMember: platform.iamMember,
+    platformSource: platform.source,
     targetServiceAccount: targetSa,
     suggestedSaName: saName,
     projectIdPlaceholder: projectId,
@@ -46,12 +48,12 @@ export async function GET(req: Request) {
       },
       {
         title: "3. Allow Sasa Launch to impersonate it (the production-grade trust step)",
-        cmd: `gcloud iam service-accounts add-iam-policy-binding ${targetSa} --member="serviceAccount:${platformSa}" --role="roles/iam.serviceAccountTokenCreator" --project=${projectId}`,
+        cmd: `gcloud iam service-accounts add-iam-policy-binding ${targetSa} --member="${platform.iamMember}" --role="roles/iam.serviceAccountTokenCreator" --project=${projectId}`,
       },
     ],
     notes: [
       `No long-lived keys are exchanged. We mint short-lived access tokens via iamcredentials.generateAccessToken on ${targetSa}, gated by the tokenCreator binding above.`,
-      `Revoke at any time by removing the binding: gcloud iam service-accounts remove-iam-policy-binding ${targetSa} --member="serviceAccount:${platformSa}" --role="roles/iam.serviceAccountTokenCreator"`,
+      `Revoke at any time by removing the binding: gcloud iam service-accounts remove-iam-policy-binding ${targetSa} --member="${platform.iamMember}" --role="roles/iam.serviceAccountTokenCreator"`,
     ],
   });
 }

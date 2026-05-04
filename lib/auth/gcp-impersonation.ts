@@ -95,16 +95,31 @@ export async function mintImpersonationToken(
   };
 }
 
+export interface PlatformIdentity {
+  /** What goes in the IAM binding: "serviceAccount:foo@..." or "user:foo@gmail.com". */
+  iamMember: string;
+  /** Just the email (no prefix). Shown to the user. */
+  email: string;
+  /** Where we found it — drives copy in the setup wizard. */
+  source: "env" | "metadata" | "service-account-json" | "adc-user" | "adc-via-gcloud";
+}
+
 /**
- * Returns the platform service account email — what users grant
- * tokenCreator on. Looks at:
- *  1. GCP_PLATFORM_SA_EMAIL env var (explicit)
- *  2. The Cloud Run / GCE metadata server (when running in GCP)
- *  3. GOOGLE_APPLICATION_CREDENTIALS JSON file (local dev)
+ * Returns the platform identity — what users grant tokenCreator to.
+ * Resolution order:
+ *   1. GCP_PLATFORM_SA_EMAIL env var (explicit, always treated as SA)
+ *   2. Cloud Run / GCE metadata server (only on GCP runtime)
+ *   3. GOOGLE_APPLICATION_CREDENTIALS JSON file
+ *      a. service_account-shaped → SA email
+ *      b. authorized_user-shaped (ADC from `gcloud auth ...`) → user email
+ *         (read via google-auth-library getCredentials())
+ *   4. `gcloud config get-value account` as a last resort
  */
-export async function getPlatformServiceAccountEmail(): Promise<string> {
+export async function getPlatformIdentity(): Promise<PlatformIdentity> {
   const explicit = process.env.GCP_PLATFORM_SA_EMAIL?.trim();
-  if (explicit) return explicit;
+  if (explicit) {
+    return { iamMember: `serviceAccount:${explicit}`, email: explicit, source: "env" };
+  }
 
   try {
     const res = await fetch(
@@ -113,7 +128,7 @@ export async function getPlatformServiceAccountEmail(): Promise<string> {
     );
     if (res.ok) {
       const text = (await res.text()).trim();
-      if (text) return text;
+      if (text) return { iamMember: `serviceAccount:${text}`, email: text, source: "metadata" };
     }
   } catch {
     // not on a GCP runtime
@@ -123,15 +138,70 @@ export async function getPlatformServiceAccountEmail(): Promise<string> {
   if (credsPath) {
     try {
       const { readFileSync } = await import(/* webpackIgnore: true */ "fs");
-      const sa = JSON.parse(readFileSync(credsPath, "utf-8")) as { client_email?: string };
-      if (sa.client_email) return sa.client_email;
+      const json = JSON.parse(readFileSync(credsPath, "utf-8")) as {
+        type?: string;
+        client_email?: string;
+      };
+      if (json.client_email) {
+        return {
+          iamMember: `serviceAccount:${json.client_email}`,
+          email: json.client_email,
+          source: "service-account-json",
+        };
+      }
+      if (json.type === "authorized_user") {
+        // ADC user creds — pull the email via google-auth-library so we
+        // can show the user which account is connected.
+        const userEmail = await emailFromAdcUser();
+        if (userEmail) {
+          return { iamMember: `user:${userEmail}`, email: userEmail, source: "adc-user" };
+        }
+      }
     } catch {
       // fall through
     }
   }
+
+  // Last resort: try the default ADC chain via google-auth-library.
+  try {
+    const userEmail = await emailFromAdcUser();
+    if (userEmail) {
+      return { iamMember: `user:${userEmail}`, email: userEmail, source: "adc-via-gcloud" };
+    }
+  } catch {
+    // fall through
+  }
+
   throw new Error(
-    "Could not determine the platform service-account email. Set GCP_PLATFORM_SA_EMAIL in env, or run with GOOGLE_APPLICATION_CREDENTIALS pointing at a JSON key.",
+    "Could not determine the platform identity. Run `gcloud auth application-default login` (uses your Google account) OR set GCP_PLATFORM_SA_EMAIL + point GOOGLE_APPLICATION_CREDENTIALS at a service-account JSON key.",
   );
+}
+
+/** Backwards-compatible: returns just the email string. Prefer
+ * getPlatformIdentity for new code. */
+export async function getPlatformServiceAccountEmail(): Promise<string> {
+  const id = await getPlatformIdentity();
+  return id.email;
+}
+
+async function emailFromAdcUser(): Promise<string | null> {
+  try {
+    const mod = await import(/* webpackIgnore: true */ "google-auth-library");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const auth = new (mod as unknown as { GoogleAuth: any }).GoogleAuth({
+      scopes: ["https://www.googleapis.com/auth/userinfo.email"],
+    });
+    const tokenResp = await auth.getAccessToken();
+    if (!tokenResp.token) return null;
+    const res = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${tokenResp.token}` },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { email?: string };
+    return data.email ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** Pretty error wrapper that turns IAM 403s into actionable advice. */
