@@ -24,6 +24,10 @@ import { EventBridgeAgent } from "./agents/eventbridge-agent.js";
 import { AppRunnerAgent } from "./agents/app-runner-agent.js";
 import { OpenSearchAgent } from "./agents/opensearch-agent.js";
 import { StepFunctionsAgent } from "./agents/step-functions-agent.js";
+import { EKSAgent } from "./agents/eks-agent.js";
+import { BedrockAgent } from "./agents/bedrock-agent.js";
+import { CodeBuildAgent } from "./agents/codebuild-agent.js";
+import { CodePipelineAgent } from "./agents/codepipeline-agent.js";
 
 // GCP Agents
 import { VPCGCPAgent } from "./agents/vpc-gcp-agent.js";
@@ -73,6 +77,10 @@ const awsAgentMap: Record<string, AgentConstructor> = {
   "app-runner": AppRunnerAgent,
   opensearch: OpenSearchAgent,
   "step-functions": StepFunctionsAgent,
+  eks: EKSAgent,
+  bedrock: BedrockAgent,
+  codebuild: CodeBuildAgent,
+  codepipeline: CodePipelineAgent,
 };
 
 const gcpAgentMap: Record<string, AgentConstructor> = {
