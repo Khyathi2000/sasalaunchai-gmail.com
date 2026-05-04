@@ -24,6 +24,8 @@ export function InputPanel() {
   const setPhase = useStore((s) => s.setPhase);
   const appendChunk = useStore((s) => s.appendAnalysisChunk);
   const setAnalysis = useStore((s) => s.setAnalysis);
+  const setRecommendations = useStore((s) => s.setRecommendations);
+  const setPlanId = useStore((s) => s.setPlanId);
 
   const submit = async () => {
     const value = source.trim();
@@ -31,6 +33,11 @@ export function InputPanel() {
     setSubmitting(true);
     setError(null);
     setProgress("Starting...");
+    // Clear analysis-derived state so we don't carry stale recommendations
+    // / selections / plan from a previous run (which would make ServiceGrid
+    // skip its auto-infer and /api/plan fail with selection mismatches).
+    setRecommendations([]);
+    setPlanId("");
     setSource_(value);
     setPhase("analyzing");
 

@@ -34,3 +34,6 @@ analysis-service/**/*.egg-info/
 # Test coverage
 coverage/
 .vitest/
+
+# Local dev DB (file-backed PGlite when DATABASE_URL is unset)
+.launch-data/

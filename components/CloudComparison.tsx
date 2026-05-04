@@ -42,9 +42,21 @@ export function CloudComparison() {
   const provider = useStore((s) => s.provider);
 
   const [bundles, setBundles] = useState<{ aws?: ProviderBundle; gcp?: ProviderBundle } | null>(null);
+  const [bundlesSid, setBundlesSid] = useState<string | null>(null);
   const [preferred, setPreferred] = useState<"aws" | "gcp">("aws");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // When sid changes (user re-analyzed), drop the cached bundles so we
+  // re-fetch against the new session. Otherwise the comparison stays
+  // pinned to the previous repo's recommendations.
+  useEffect(() => {
+    if (sid && bundlesSid && sid !== bundlesSid) {
+      setBundles(null);
+      setBundlesSid(null);
+      setError(null);
+    }
+  }, [sid, bundlesSid]);
 
   // Fetch both clouds whenever we land on a fresh codebase.
   useEffect(() => {
@@ -59,6 +71,7 @@ export function CloudComparison() {
       .then((r) => (r.ok ? r.json() : Promise.reject(r.statusText)))
       .then((data: InferResponse) => {
         setBundles({ aws: data.aws, gcp: data.gcp });
+        setBundlesSid(sid);
         setPreferred(data.preferred);
         setProvider(data.preferred);
         setRecommendations(data.recommendations);

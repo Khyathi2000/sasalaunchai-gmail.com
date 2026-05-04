@@ -9,6 +9,11 @@ const nextConfig = {
     "@anthropic-ai/sdk",
     "@google-cloud/firestore",
     "@google-cloud/pubsub",
+    "@google-cloud/kms",
+    "@google-cloud/billing",
+    "@google-cloud/monitoring",
+    "@electric-sql/pglite",
+    "postgres",
   ],
   webpack(config) {
     // Core source under src/core/ uses NodeNext-style ".js" imports that

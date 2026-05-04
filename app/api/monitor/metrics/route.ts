@@ -1,5 +1,6 @@
 import { sseResponse } from "@/lib/sse-server";
 import { collectMetrics } from "@/lib/core";
+import { collectGcpMetrics } from "@core/monitoring/collectors/gcp-metrics.js";
 import { readSession } from "@/lib/sessions";
 import { ensureUser } from "@/lib/auth/user";
 
@@ -19,12 +20,23 @@ export async function GET(req: Request) {
       ctrl.send("error", { message: "no plan in session" });
       return;
     }
+    const provider = session.plan.provider as "aws" | "gcp";
     const serviceIds = session.plan.services.map((s) => s.serviceId);
     const region = session.plan.region;
 
     while (ctrl.isOpen() && !signal.aborted) {
       const results = await Promise.all(
-        serviceIds.map((id) => collectMetrics(id, region).catch(() => null)),
+        serviceIds.map(async (id) => {
+          try {
+            if (provider === "gcp") {
+              const m = await collectGcpMetrics(id);
+              if (m) return m;
+            }
+            return await collectMetrics(id, region);
+          } catch {
+            return null;
+          }
+        }),
       );
       for (const m of results) {
         if (m) ctrl.send("metrics", m);
