@@ -83,7 +83,9 @@ async function fetchFromBigQuery(
   // need to install it; the catalog estimate covers the default path.
   type BigQueryRow = { service: string; cost: string };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const bq: any = await import("@google-cloud/bigquery" as never).catch(() => null);
+  const bq: any = await import(/* webpackIgnore: true */ "@google-cloud/bigquery" as never).catch(
+    () => null,
+  );
   if (!bq) {
     throw new Error("@google-cloud/bigquery is not installed; npm install it to enable real GCP costs");
   }
