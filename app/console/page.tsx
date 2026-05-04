@@ -7,6 +7,7 @@ import { InputPanel } from "@/components/InputPanel";
 import { AnalysisStream } from "@/components/AnalysisStream";
 import { ServiceGrid } from "@/components/ServiceGrid";
 import { CloudComparison } from "@/components/CloudComparison";
+import { ArchitectChat } from "@/components/ArchitectChat";
 import { DeployTimeline } from "@/components/DeployTimeline";
 import { Dashboard } from "@/components/Dashboard";
 import { useStore } from "@/lib/store";
@@ -62,6 +63,7 @@ export default function AppPage() {
         <DeployTimeline />
         <Dashboard />
       </main>
+      <ArchitectChat />
       <Footer />
     </div>
   );
