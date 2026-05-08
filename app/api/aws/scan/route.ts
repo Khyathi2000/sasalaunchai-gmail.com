@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sseResponse } from "@/lib/sse-server";
-import { discoverAWSAccount } from "@core/monitoring/collectors/aws-discovery.js";
+import { discoverAWSAccount } from "@core/monitoring/collectors/aws-discovery";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
