@@ -4,9 +4,9 @@
 import { spawn } from "child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
-import type { ServiceRecommendation } from "../types/cloud.js";
-import type { DeploymentPlan } from "../types/plan.js";
-import type { MessageBus } from "./message-bus.js";
+import type { ServiceRecommendation } from "../types/cloud";
+import type { DeploymentPlan } from "../types/plan";
+import type { MessageBus } from "./message-bus";
 
 export interface TfStreamResult {
   success: boolean;

@@ -1,6 +1,6 @@
 import { writeFileSync } from "fs";
 import { join } from "path";
-import { DeploymentAgent } from "../agent-base.js";
+import { DeploymentAgent } from "../agent-base";
 
 export class SecretsManagerAgent extends DeploymentAgent {
   protected async provision(): Promise<void> {

@@ -1,4 +1,4 @@
-import type { Dependency } from "../types/index.js";
+import type { Dependency } from "../types/index";
 
 interface WhyExplanation {
   description: string;

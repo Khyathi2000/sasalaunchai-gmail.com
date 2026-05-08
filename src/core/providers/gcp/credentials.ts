@@ -1,6 +1,6 @@
 import { execSync, spawnSync } from "child_process";
 import { existsSync } from "fs";
-import type { CloudProvider } from "../provider.js";
+import type { CloudProvider } from "../provider";
 
 export class GCPProvider implements CloudProvider {
   name(): string { return "gcp"; }

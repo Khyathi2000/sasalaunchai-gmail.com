@@ -1,7 +1,7 @@
 import { copyFileSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { DeploymentAgent } from "../agent-base.js";
+import { DeploymentAgent } from "../agent-base";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_TEMPLATE = join(__dirname, "..", "..", "templates", "firestore", "firestore.rules");

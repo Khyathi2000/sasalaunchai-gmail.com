@@ -1,4 +1,4 @@
-import type { SecurityIssue } from "../types/index.js";
+import type { SecurityIssue } from "../types/index";
 
 interface ScanInput { path: string; content: string; }
 

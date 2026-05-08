@@ -1,5 +1,5 @@
-import type { Dependency } from "../types/index.js";
-import { parsePackageJson, type ParsedProject } from "./package-parser.js";
+import type { Dependency } from "../types/index";
+import { parsePackageJson, type ParsedProject } from "./package-parser";
 
 export const CONFIG_FILE_CANDIDATES = [
   "package.json", "pyproject.toml", "requirements.txt", "go.mod",

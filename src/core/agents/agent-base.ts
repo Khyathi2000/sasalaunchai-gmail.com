@@ -1,7 +1,7 @@
-import type { AgentStatusType, ServiceRecommendation } from "../types/cloud.js";
-import type { DeploymentPlan } from "../types/plan.js";
-import { MessageBus } from "./message-bus.js";
-import { log } from "../utils/logger.js";
+import type { AgentStatusType, ServiceRecommendation } from "../types/cloud";
+import type { DeploymentPlan } from "../types/plan";
+import { MessageBus } from "./message-bus";
+import { log } from "../utils/logger";
 import { existsSync } from "fs";
 import { spawn } from "child_process";
 

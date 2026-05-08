@@ -1,7 +1,7 @@
 // Re-export sub-modules
-export * from "./plan.js";
-export * from "./cloud.js";
-export * from "./events.js";
+export * from "./plan";
+export * from "./cloud";
+export * from "./events";
 
 // Types adapted from Sakura AI for code analysis
 

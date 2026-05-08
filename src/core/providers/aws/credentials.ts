@@ -1,6 +1,6 @@
 import { existsSync } from "fs";
 import { join } from "path";
-import type { CloudProvider } from "../provider.js";
+import type { CloudProvider } from "../provider";
 
 export class AWSProvider implements CloudProvider {
   name(): string { return "aws"; }

@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
-import type { AgentMessage, OrchestratorEvent } from "../types/events.js";
-import type { AgentStatusType } from "../types/cloud.js";
+import type { AgentMessage, OrchestratorEvent } from "../types/events";
+import type { AgentStatusType } from "../types/cloud";
 
 export class MessageBus extends EventEmitter {
   private messages: AgentMessage[] = [];

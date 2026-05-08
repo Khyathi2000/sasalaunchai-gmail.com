@@ -1,6 +1,6 @@
-import type { ClassifiedFile } from "./file-classifier.js";
-import type { ParsedDependency } from "./dependency-parser.js";
-import type { ArchitectureDiagram } from "../types/index.js";
+import type { ClassifiedFile } from "./file-classifier";
+import type { ParsedDependency } from "./dependency-parser";
+import type { ArchitectureDiagram } from "../types/index";
 
 export function generateDiagrams(
   files: ClassifiedFile[],

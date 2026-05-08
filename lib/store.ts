@@ -8,7 +8,7 @@ import type {
   CostBreakdown,
   ServiceMetrics,
   LifecycleState,
-} from "./core.js";
+} from "./core";
 
 export type Phase =
   | "input"

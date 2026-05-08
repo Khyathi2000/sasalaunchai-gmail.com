@@ -1,11 +1,11 @@
-import type { ServiceRecommendation, AgentOutput } from "../types/cloud.js";
-import type { DeploymentPlan } from "../types/plan.js";
-import { MessageBus } from "./message-bus.js";
-import { DeploymentAgent, type LifecycleState } from "./agent-base.js";
-import { createAgent } from "./agent-registry.js";
-import { buildDependencyOrder } from "../inference/inference-engine.js";
-import { applyDeployment, isTerraformAvailable } from "./terraform-runner.js";
-import { log } from "../utils/logger.js";
+import type { ServiceRecommendation, AgentOutput } from "../types/cloud";
+import type { DeploymentPlan } from "../types/plan";
+import { MessageBus } from "./message-bus";
+import { DeploymentAgent, type LifecycleState } from "./agent-base";
+import { createAgent } from "./agent-registry";
+import { buildDependencyOrder } from "../inference/inference-engine";
+import { applyDeployment, isTerraformAvailable } from "./terraform-runner";
+import { log } from "../utils/logger";
 import { join } from "path";
 import { mkdirSync } from "fs";
 

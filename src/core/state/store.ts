@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
-import type { AgentStatusType } from "../types/cloud.js";
-import type { LifecycleState } from "../agents/agent-base.js";
+import type { AgentStatusType } from "../types/cloud";
+import type { LifecycleState } from "../agents/agent-base";
 
 export interface DeploymentState {
   phase: string;

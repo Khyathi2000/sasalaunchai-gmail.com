@@ -1,5 +1,5 @@
-import type { ParsedCodebase } from "../../types/index.js";
-import type { ServiceRecommendation } from "../../types/cloud.js";
+import type { ParsedCodebase } from "../../types/index";
+import type { ServiceRecommendation } from "../../types/cloud";
 
 export function inferApiServices(codebase: ParsedCodebase, provider: string): ServiceRecommendation[] {
   const recs: ServiceRecommendation[] = [];

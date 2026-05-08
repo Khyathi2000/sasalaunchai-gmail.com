@@ -13,8 +13,8 @@ import type {
   AnalysisResult,
   ServiceRecommendation,
   DeploymentPlan,
-} from "./core.js";
-import { firestore } from "./firestore.js";
+} from "./core";
+import { firestore } from "./firestore";
 
 const ROOT_WORKDIR = process.env.LAUNCH_WEB_WORKDIR || "/tmp/launch-web";
 const COLLECTION = "sessions";

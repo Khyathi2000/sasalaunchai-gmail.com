@@ -1,7 +1,7 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { DeploymentAgent } from "../agent-base.js";
+import { DeploymentAgent } from "../agent-base";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PLACEHOLDER_SRC = join(__dirname, "..", "..", "templates", "lambda", "index.js");
