@@ -1,5 +1,5 @@
-import type { Dependency } from "../types/index.js";
-import { getWhyExplanation, hasWhyExplanation } from "./why-engine.js";
+import type { Dependency } from "../types/index";
+import { getWhyExplanation, hasWhyExplanation } from "./why-engine";
 
 export interface ParsedProject {
   name: string;

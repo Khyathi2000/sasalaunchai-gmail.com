@@ -1,8 +1,8 @@
-import type { ServiceRecommendation } from "../types/cloud.js";
-import type { DeploymentPlan } from "../types/plan.js";
-import { DeploymentOrchestrator, type DeploymentResult, type ServiceLifecycleResult } from "./deployment-orchestrator.js";
-import { MessageBus } from "./message-bus.js";
-import { log } from "../utils/logger.js";
+import type { ServiceRecommendation } from "../types/cloud";
+import type { DeploymentPlan } from "../types/plan";
+import { DeploymentOrchestrator, type DeploymentResult, type ServiceLifecycleResult } from "./deployment-orchestrator";
+import { MessageBus } from "./message-bus";
+import { log } from "../utils/logger";
 
 export type MigrationPhase = "idle" | "target-deploying" | "target-running" | "decommissioning" | "complete" | "failed";
 

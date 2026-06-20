@@ -1,5 +1,5 @@
-import type { FileNode } from "../types/index.js";
-import type { ClassifiedFile } from "./file-classifier.js";
+import type { FileNode } from "../types/index";
+import type { ClassifiedFile } from "./file-classifier";
 
 export function buildFileTree(files: ClassifiedFile[]): FileNode[] {
   const root: FileNode = {

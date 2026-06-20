@@ -1,4 +1,4 @@
-import type { Service } from "./service.js";
+import type { Service } from "./service";
 
 export const gcpServices: Service[] = [
   { id: "gce", name: "Compute Engine", description: "Virtual machine instances", category: "compute", provider: "gcp" },

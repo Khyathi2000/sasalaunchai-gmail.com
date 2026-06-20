@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ParsedCodebase, AnalysisResult, FileExplanation, TechConsideration, InfraRequirements } from "../types/index.js";
+import type { ParsedCodebase, AnalysisResult, FileExplanation, TechConsideration, InfraRequirements } from "../types/index";
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {

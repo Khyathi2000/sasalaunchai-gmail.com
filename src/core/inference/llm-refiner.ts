@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { ServiceRecommendation } from "../types/cloud.js";
-import type { ParsedCodebase, AnalysisResult } from "../types/index.js";
+import type { ServiceRecommendation } from "../types/cloud";
+import type { ParsedCodebase, AnalysisResult } from "../types/index";
 
 let _client: Anthropic | null = null;
 function getClient(): Anthropic {

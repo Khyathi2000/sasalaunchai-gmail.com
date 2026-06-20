@@ -1,4 +1,4 @@
-import type { Service } from "./service.js";
+import type { Service } from "./service";
 
 export const awsServices: Service[] = [
   { id: "vpc", name: "VPC", description: "Virtual private cloud for network isolation", category: "networking", provider: "aws" },

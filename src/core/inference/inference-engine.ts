@@ -1,21 +1,20 @@
-import type { ParsedCodebase, AnalysisResult } from "../types/index.js";
-import type { ServiceRecommendation } from "../types/cloud.js";
-import { inferComputeServices } from "./rules/compute.js";
-import { inferDatabaseServices } from "./rules/database.js";
-import { inferStorageServices } from "./rules/storage.js";
-import { inferNetworkingServices } from "./rules/networking.js";
-import { inferMessagingServices } from "./rules/messaging.js";
-import { inferCachingServices } from "./rules/caching.js";
-import { inferAuthServices } from "./rules/auth.js";
-import { inferObservabilityServices } from "./rules/observability.js";
-import { inferApiServices } from "./rules/api.js";
-import { inferEventServices } from "./rules/events.js";
-import { inferWorkflowServices } from "./rules/workflows.js";
-import { inferAnalyticsServices } from "./rules/analytics.js";
-import { inferMLServices } from "./rules/ml.js";
-import { inferK8sServices } from "./rules/k8s.js";
-import { inferSearchServices } from "./rules/search.js";
-import { inferCIServices } from "./rules/ci.js";
+import type { ParsedCodebase, AnalysisResult } from "../types/index";
+import type { ServiceRecommendation } from "../types/cloud";
+import { inferComputeServices } from "./rules/compute";
+import { inferDatabaseServices } from "./rules/database";
+import { inferStorageServices } from "./rules/storage";
+import { inferNetworkingServices } from "./rules/networking";
+import { inferMessagingServices } from "./rules/messaging";
+import { inferCachingServices } from "./rules/caching";
+import { inferAuthServices } from "./rules/auth";
+import { inferObservabilityServices } from "./rules/observability";
+import { inferApiServices } from "./rules/api";
+import { inferEventServices } from "./rules/events";
+import { inferWorkflowServices } from "./rules/workflows";
+import { inferAnalyticsServices } from "./rules/analytics";
+import { inferMLServices } from "./rules/ml";
+import { inferK8sServices } from "./rules/k8s";
+import { inferSearchServices } from "./rules/search";
 
 export function inferServices(
   codebase: ParsedCodebase,

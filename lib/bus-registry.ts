@@ -1,7 +1,7 @@
 // In-process registry of live orchestrators and their MessageBuses.
 // Keyed by planId so SSE re-attach works across requests within the same Node process.
 
-import type { DeploymentOrchestrator, MigrationOrchestrator, MessageBus } from "./core.js";
+import type { DeploymentOrchestrator, MigrationOrchestrator, MessageBus } from "./core";
 
 const orchestrators = new Map<string, DeploymentOrchestrator>();
 const migrations = new Map<string, MigrationOrchestrator>();

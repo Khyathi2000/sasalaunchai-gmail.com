@@ -1,6 +1,6 @@
 import { readFileSync, readdirSync, statSync } from "fs";
 import { join, relative, basename } from "path";
-import type { ParsedCodebase, ParsedFile, FileNode } from "../types/index.js";
+import type { ParsedCodebase, ParsedFile, FileNode } from "../types/index";
 
 export class RepoNotAccessibleError extends Error {
   constructor(message: string) {

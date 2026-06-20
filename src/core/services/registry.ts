@@ -1,6 +1,6 @@
-import type { Service } from "./service.js";
-import { awsServices } from "./aws-services.js";
-import { gcpServices } from "./gcp-services.js";
+import type { Service } from "./service";
+import { awsServices } from "./aws-services";
+import { gcpServices } from "./gcp-services";
 
 const allServices: Service[] = [...awsServices, ...gcpServices];
 

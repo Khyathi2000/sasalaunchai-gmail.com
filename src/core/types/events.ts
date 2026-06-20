@@ -1,4 +1,4 @@
-import type { AgentStatusType } from "./cloud.js";
+import type { AgentStatusType } from "./cloud";
 
 export interface AgentMessage {
   id: string;
