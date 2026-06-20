@@ -73,6 +73,10 @@ const awsAgentMap: Record<string, AgentConstructor> = {
   "app-runner": AppRunnerAgent,
   opensearch: OpenSearchAgent,
   "step-functions": StepFunctionsAgent,
+  eks: EKSAgent,
+  bedrock: BedrockAgent,
+  codebuild: CodeBuildAgent,
+  codepipeline: CodePipelineAgent,
 };
 
 const gcpAgentMap: Record<string, AgentConstructor> = {

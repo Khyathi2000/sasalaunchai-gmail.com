@@ -17,6 +17,11 @@ const nextConfig = {
     "@anthropic-ai/sdk",
     "@google-cloud/firestore",
     "@google-cloud/pubsub",
+    "@google-cloud/kms",
+    "@google-cloud/billing",
+    "@google-cloud/monitoring",
+    "@electric-sql/pglite",
+    "postgres",
   ],
   turbopack: {},
 };

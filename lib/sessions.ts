@@ -1,13 +1,13 @@
-// Session-side persistence for web sessions.
+// Per-user session persistence backed by Postgres (Drizzle).
 //
-// State (codebase, analysis, recommendations, plan, planId) is stored in
-// Firestore so it survives Cloud Run revision swaps and is visible across
-// instances. Filesystem dirs are still provided for transient terraform
-// working artifacts (per-instance, ephemeral by design).
+// Replaces the previous Firestore-only / filesystem-fallback layout.
+// Sessions are now scoped to a Clerk userId and live in the `sessions`
+// table; the on-disk session JSON files are still produced as transient
+// terraform working dirs (per-instance, ephemeral by design).
 
 import { mkdirSync } from "fs";
-import { mkdir, readFile, writeFile } from "fs/promises";
 import { join } from "path";
+import { and, desc, eq } from "drizzle-orm";
 import type {
   ParsedCodebase,
   AnalysisResult,
@@ -17,36 +17,27 @@ import type {
 import { firestore } from "./firestore";
 
 const ROOT_WORKDIR = process.env.LAUNCH_WEB_WORKDIR || "/tmp/launch-web";
-const COLLECTION = "sessions";
-const FS_SESSIONS_DIR = join(ROOT_WORKDIR, "_sessions");
 
-function gcpConfigured(): boolean {
-  return !!(
-    process.env.GOOGLE_APPLICATION_CREDENTIALS || process.env.GOOGLE_CLOUD_PROJECT
-  );
+export interface ChatMessage {
+  role: "user" | "assistant" | "tool";
+  content: string;
+  toolName?: string;
+  toolInput?: unknown;
+  toolOutput?: unknown;
+  ts: string;
 }
 
-function fsSessionPath(sid: string): string {
-  return join(FS_SESSIONS_DIR, `${sid}.json`);
-}
-
-async function fsReadSession(sid: string): Promise<SessionRecord | null> {
-  try {
-    const buf = await readFile(fsSessionPath(sid), "utf8");
-    return JSON.parse(buf) as SessionRecord;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
-  }
-}
-
-async function fsWriteSession(record: SessionRecord): Promise<void> {
-  await mkdir(FS_SESSIONS_DIR, { recursive: true });
-  await writeFile(fsSessionPath(record.sid), JSON.stringify(record), { mode: 0o600 });
+export interface ArchitectMutation {
+  ts: string;
+  kind: "add_service" | "remove_service" | "swap_service" | "set_provider" | "set_region";
+  before: unknown;
+  after: unknown;
+  rationale?: string;
 }
 
 export interface SessionRecord {
   sid: string;
+  userId: string;
   createdAt: string;
   updatedAt: string;
   source?: string;
@@ -55,49 +46,144 @@ export interface SessionRecord {
   recommendations?: ServiceRecommendation[];
   plan?: DeploymentPlan;
   planId?: string;
+  chatHistory?: ChatMessage[];
+  architectMutations?: ArchitectMutation[];
 }
 
 function workDir(sid: string): string {
   return join(ROOT_WORKDIR, sid);
 }
 
-// Returns a transient per-instance working directory for terraform artifacts.
-// Not used for session state — that lives in Firestore.
+/** Returns a transient per-instance working directory for terraform artifacts. */
 export function ensureSessionDir(sid: string): string {
   const dir = workDir(sid);
   mkdirSync(dir, { recursive: true });
   return dir;
 }
 
-export async function readSession(sid: string): Promise<SessionRecord | null> {
-  if (!gcpConfigured()) return fsReadSession(sid);
-  const snap = await firestore().collection(COLLECTION).doc(sid).get();
-  if (!snap.exists) return null;
-  return snap.data() as SessionRecord;
+function rowToRecord(row: SessionRow): SessionRecord {
+  return {
+    sid: row.sid,
+    userId: row.userId,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    source: row.source ?? undefined,
+    codebase: (row.codebase as ParsedCodebase | null) ?? undefined,
+    analysis: (row.analysis as AnalysisResult | null) ?? undefined,
+    recommendations: (row.recommendations as ServiceRecommendation[] | null) ?? undefined,
+    plan: (row.plan as DeploymentPlan | null) ?? undefined,
+    planId: row.planId ?? undefined,
+    chatHistory: (row.chatHistory as ChatMessage[]) ?? [],
+    architectMutations: (row.architectMutations as ArchitectMutation[]) ?? [],
+  };
 }
 
+/**
+ * Read a session by sid. Returns null if it doesn't exist OR if the caller
+ * doesn't own it (caller must pass `userId` to enforce isolation).
+ *
+ * Pass `userId: undefined` ONLY in admin / migration scripts.
+ */
+export async function readSession(
+  sid: string,
+  userId?: string,
+): Promise<SessionRecord | null> {
+  const where = userId
+    ? and(eq(sessions.sid, sid), eq(sessions.userId, userId))
+    : eq(sessions.sid, sid);
+  const rows = await db().select().from(sessions).where(where).limit(1);
+  return rows[0] ? rowToRecord(rows[0]) : null;
+}
+
+/**
+ * Insert or update a session row. The userId on the record is the source
+ * of truth — callers must set it before writing.
+ */
 export async function writeSession(record: SessionRecord): Promise<void> {
-  record.updatedAt = new Date().toISOString();
-  if (!gcpConfigured()) {
-    await fsWriteSession(record);
-    return;
+  if (!record.userId) {
+    throw new Error("writeSession requires record.userId");
   }
-  await firestore().collection(COLLECTION).doc(record.sid).set(record);
+  const now = new Date();
+  await db()
+    .insert(sessions)
+    .values({
+      sid: record.sid,
+      userId: record.userId,
+      source: record.source,
+      codebase: record.codebase ?? null,
+      analysis: record.analysis ?? null,
+      recommendations: record.recommendations ?? null,
+      plan: record.plan ?? null,
+      planId: record.planId,
+      chatHistory: record.chatHistory ?? [],
+      architectMutations: record.architectMutations ?? [],
+      createdAt: new Date(record.createdAt),
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: sessions.sid,
+      set: {
+        source: record.source,
+        codebase: record.codebase ?? null,
+        analysis: record.analysis ?? null,
+        recommendations: record.recommendations ?? null,
+        plan: record.plan ?? null,
+        planId: record.planId,
+        chatHistory: record.chatHistory ?? [],
+        architectMutations: record.architectMutations ?? [],
+        updatedAt: now,
+      },
+    });
 }
 
+/**
+ * Read-modify-write helper. If the session doesn't exist, creates it under
+ * the given userId. Throws if the session exists but is owned by someone
+ * else — prevents one user from writing into another user's row via the
+ * sid (which is exposed in URLs).
+ */
 export async function updateSession(
   sid: string,
+  userId: string,
   update: (r: SessionRecord) => SessionRecord,
 ): Promise<SessionRecord> {
-  const existing =
-    (await readSession(sid)) ?? {
-      sid,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  const next = update(existing);
+  // Raw lookup (no user filter) so we can detect cross-user attempts.
+  const rawRows = await db().select().from(sessions).where(eq(sessions.sid, sid)).limit(1);
+  const existing = rawRows[0] ? rowToRecord(rawRows[0]) : null;
+  if (existing && existing.userId !== userId) {
+    throw new Error(`session ${sid} is not owned by user ${userId}`);
+  }
+  const seed: SessionRecord = existing ?? {
+    sid,
+    userId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    chatHistory: [],
+    architectMutations: [],
+  };
+  const next = update(seed);
+  next.userId = userId; // never let the updater overwrite ownership
   await writeSession(next);
   return next;
+}
+
+/** List the current user's sessions, newest first. */
+export async function listUserSessions(userId: string, limit = 50): Promise<SessionRecord[]> {
+  const rows = await db()
+    .select()
+    .from(sessions)
+    .where(eq(sessions.userId, userId))
+    .orderBy(desc(sessions.updatedAt))
+    .limit(limit);
+  return rows.map(rowToRecord);
+}
+
+export async function deleteSession(sid: string, userId: string): Promise<boolean> {
+  const result = await db()
+    .delete(sessions)
+    .where(and(eq(sessions.sid, sid), eq(sessions.userId, userId)))
+    .returning({ sid: sessions.sid });
+  return result.length > 0;
 }
 
 export function newSessionId(): string {

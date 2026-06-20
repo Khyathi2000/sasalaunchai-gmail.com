@@ -37,6 +37,7 @@ export function inferServices(
     ...inferSearchServices(codebase, provider),
     ...inferAnalyticsServices(codebase, provider),
     ...inferMLServices(codebase, provider),
+    ...inferCIServices(codebase, provider),
     ...inferObservabilityServices(codebase, provider),
   ];
 

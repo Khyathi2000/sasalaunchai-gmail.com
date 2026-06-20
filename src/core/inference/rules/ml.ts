@@ -30,7 +30,24 @@ export function inferMLServices(codebase: ParsedCodebase, provider: string): Ser
       dependsOn: [],
     });
   }
-  // No Bedrock agent yet on AWS — would be a clean follow-up.
+
+  if (provider === "aws" && usesLLM) {
+    recs.push({
+      serviceId: "bedrock",
+      serviceName: "Bedrock",
+      category: "ml",
+      provider: "aws",
+      reason:
+        hasAnthropic ? "Anthropic SDK detected — Bedrock can serve Claude with AWS-native auth" :
+        hasOpenAi ? "OpenAI SDK detected — Bedrock provides the equivalent foundation models with AWS billing" :
+        hasLangchain ? "LangChain detected — Bedrock works as a drop-in chat model" :
+        hasCustomModel ? "Notebook / model artifacts detected — Bedrock for managed inference" :
+        "LLM SDK detected — Bedrock for managed AWS-native inference",
+      confidence: hasAnthropic || hasOpenAi ? "high" : "medium",
+      config: {},
+      dependsOn: ["iam"],
+    });
+  }
 
   return recs;
 }
